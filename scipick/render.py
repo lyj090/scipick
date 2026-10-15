@@ -21,6 +21,25 @@ from .config import DEFAULT_PRESETS, Preset
 from .curate import gate as _frontier_gate
 from .i18n import DEFAULT_LANG, HTML_LANG, LANGS, LANG_LABEL, js_payload, strings_for
 
+#: Benchmark provenance shown on the page: (metric key, display name, scale,
+#: i18n key for the description). Order is the reading order.
+BENCHMARKS: tuple[tuple[str, str, str, str], ...] = (
+    ("scicode", "SciCode", "0-1", "bench.scicode"),
+    ("hle", "HLE", "0-1", "bench.hle"),
+    ("aa_intelligence_index", "AA Intelligence Index", "0-100", "bench.index"),
+    ("long_context_reasoning", "Long-context reasoning", "0-1", "bench.lcr"),
+    ("terminalbench_v4_0", "Terminal-Bench 4.0", "0-1", "bench.terminal"),
+)
+
+#: English descriptions, used as the static fallback markup.
+_BENCH_DESC_EN = {
+    "bench.scicode": "Scientific code generation - solving research-level programming problems.",
+    "bench.hle": "Humanity's Last Exam - broad expert-level reasoning across disciplines.",
+    "bench.index": "Aggregate reasoning index across many evaluations.",
+    "bench.lcr": "Retrieving and reasoning over long inputs, such as whole repositories.",
+    "bench.terminal": "Agentic execution in a real shell - multi-step command-line tasks.",
+}
+
 #: Presets shipped with scipick, whose descriptions have translations.
 BUILTIN_KEYS = frozenset(DEFAULT_PRESETS)
 
@@ -625,6 +644,21 @@ def render(
         for k, p in presets.items()
     )
 
+    # Benchmark provenance: what each metric measures, its scale, and how many
+    # board models report it. Stating coverage up front is the difference between
+    # a ranking and a defensible one.
+    total = len(models) or 1
+    bench_rows = ""
+    for key, label, scale, desc_key in BENCHMARKS:
+        n = sum(1 for m in models if m["metrics"].get(key) is not None)
+        pct = n / total * 100
+        bench_rows += (
+            f"<tr><td><b>{esc(label)}</b><br><em class='wt'>{esc(key)}</em></td>"
+            f"<td><span data-i18n='{desc_key}'>{esc(_BENCH_DESC_EN[desc_key])}</span></td>"
+            f"<td class='wt'><em>{esc(scale)}</em></td>"
+            f"<td class='num'>{n} <em class='wt'>({pct:.0f}%)</em></td></tr>"
+        )
+
     sources = ", ".join(sorted(source_labels)) if source_labels else ""
     local_note = ""
     if meta.get("local_base"):
@@ -690,6 +724,16 @@ def render(
     <th data-i18n="method.rankby">Rank by</th>
     <th class="num" data-i18n="method.floor">Coverage floor</th>
   </tr></thead><tbody>{weight_rows}</tbody></table></div>
+  <p class="lede" data-i18n="method.note">Weights are relative and renormalised per model.</p>
+
+  <h2 data-i18n="bench.title">Benchmarks</h2>
+  <p class="lede" data-i18n="bench.desc">What the weighted metrics measure.</p>
+  <div class="tw"><table><thead><tr>
+    <th data-i18n="bench.metric">Benchmark</th>
+    <th data-i18n="bench.measures">What it measures</th>
+    <th data-i18n="bench.scale">Scale</th>
+    <th class="num" data-i18n="bench.coverage">Coverage</th>
+  </tr></thead><tbody>{bench_rows}</tbody></table></div>
 
   <h2 data-i18n="howto.title">How to read this</h2>
   <div class="note info" data-i18n-html="howto.body">{s['howto.body']}</div>

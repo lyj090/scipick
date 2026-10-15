@@ -106,6 +106,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.none": "not configured",
         "meta.byline": "Scoring and presentation by scipick.",
         "meta.license": "MIT licensed",
+        "bench.title": "Benchmarks",
+        "bench.desc": (
+            "What the weighted metrics actually measure, and how much of the "
+            "board reports each one. Coverage matters: a benchmark present for "
+            "every model is stronger evidence than one present for a third."
+        ),
+        "bench.metric": "Benchmark",
+        "bench.measures": "What it measures",
+        "bench.scale": "Scale",
+        "bench.coverage": "Coverage",
+        "bench.scicode": "Scientific code generation — solving research-level programming problems.",
+        "bench.hle": "Humanity's Last Exam — broad expert-level reasoning across disciplines.",
+        "bench.index": "Aggregate reasoning index across many evaluations.",
+        "bench.lcr": "Retrieving and reasoning over long inputs, such as whole repositories.",
+        "bench.terminal": "Agentic execution in a real shell — multi-step command-line tasks.",
+        "bench.coverage.note": "{n} of {total} models on the board report this benchmark.",
+        "method.note": (
+            "Weights are relative and renormalised per model, so a missing "
+            "benchmark never counts as a zero score."
+        ),
         "meta.source_code": "Source",
         "meta.selection": (
             "Selected from {aa} models: latest generation per product line, "
@@ -197,6 +217,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.none": "未配置",
         "meta.byline": "评分与呈现由 scipick 完成。",
         "meta.license": "MIT 许可",
+        "bench.title": "基准说明",
+        "bench.desc": (
+            "这里说明各加权指标究竟衡量什么，以及榜单中有多少模型报告了该指标。"
+            "覆盖率很重要：全体模型都有的基准，比只有三分之一模型有的基准更有说服力。"
+        ),
+        "bench.metric": "基准",
+        "bench.measures": "衡量内容",
+        "bench.scale": "量纲",
+        "bench.coverage": "覆盖率",
+        "bench.scicode": "科学代码生成——求解研究级编程问题。",
+        "bench.hle": "Humanity's Last Exam——跨学科的专家级推理。",
+        "bench.index": "综合多项评测的推理指数。",
+        "bench.lcr": "对长输入（如整个代码仓库）的检索与推理能力。",
+        "bench.terminal": "真实 shell 中的智能体执行——多步命令行任务。",
+        "bench.coverage.note": "榜单 {total} 个模型中有 {n} 个报告了该基准。",
+        "method.note": "权重是相对的，并按模型逐一重归一化，因此缺失的基准不会被当作 0 分。",
         "meta.source_code": "源码",
         "meta.selection": (
             "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"
