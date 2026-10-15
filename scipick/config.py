@@ -61,6 +61,10 @@ class Preset:
     weights: dict[str, float]
     rank_by: str = "score"  # "score" | "efficiency"
     min_coverage: float = 0.6
+    #: Frontier gate: a model must reach this fraction of the best score *in
+    #: this view* to be ranked. 0 disables the gate. This is what keeps the
+    #: value board from being topped by tiny models that are merely cheap.
+    min_relative_score: float = 0.0
 
     def normalised(self) -> dict[str, float]:
         total = sum(self.weights.values())
@@ -84,6 +88,7 @@ DEFAULT_PRESETS: dict[str, Preset] = {
         },
         rank_by="score",
         min_coverage=0.5,
+        min_relative_score=0.0,   # the capability board *is* the frontier
     ),
     "value": Preset(
         key="value",
@@ -98,6 +103,9 @@ DEFAULT_PRESETS: dict[str, Preset] = {
         },
         rank_by="efficiency",
         min_coverage=0.5,
+        # Value only means something among models worth using. Without this the
+        # board is won by 3-4B models scoring ~20/100 at $0.04/1M.
+        min_relative_score=0.65,
     ),
     "coding": Preset(
         key="coding",
@@ -112,6 +120,20 @@ DEFAULT_PRESETS: dict[str, Preset] = {
         # SciCode + Terminal-Bench + LCR must mostly be present, otherwise this
         # degenerates into a long-context ranking (see Preset.min_coverage).
         min_coverage=0.85,
+        min_relative_score=0.0,
+    ),
+    "longcontext": Preset(
+        key="longcontext",
+        label="Long context",
+        description="For whole-repository or long-document reasoning.",
+        weights={
+            "lcr": 0.50,
+            "scicode": 0.25,
+            "artificial_analysis_intelligence_index": 0.25,
+        },
+        rank_by="score",
+        min_coverage=0.5,
+        min_relative_score=0.6,
     ),
 }
 
@@ -199,5 +221,6 @@ def load_presets(path: str | os.PathLike | None = None) -> dict[str, Preset]:
             weights=weights,
             rank_by=str(body.get("rank_by") or "score"),
             min_coverage=float(body.get("min_coverage", 0.6)),
+            min_relative_score=float(body.get("min_relative_score", 0.0)),
         )
     return out

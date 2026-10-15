@@ -28,6 +28,7 @@ import re
 
 from . import config, fetch
 from .config import Preset
+from .curate import latest_only
 from .score import blended_price, efficiency, science_score
 
 #: Families used to pick cross-vendor reference models. Matching is substring
@@ -113,6 +114,7 @@ def collect(
     aa_models: list[dict],
     local_models: dict[str, list[str]] | None = None,
     presets: dict[str, Preset] | None = None,
+    latest: bool = True,
 ) -> tuple[list[dict], list[dict], dict]:
     """Join AA data with local availability.
 
@@ -154,7 +156,12 @@ def collect(
                 rec["variants"].append(name)
             rec["available_locally"] = True
 
-    out = sorted(board.values(), key=lambda r: -(r.get("science_fit_score") or 0))
+    rows = list(board.values())
+    superseded = 0
+    if latest:
+        rows, superseded = latest_only(rows)
+
+    out = sorted(rows, key=lambda r: -(r.get("science_fit_score") or 0))
     for rec in out:
         rec["sources"].sort()
         rec["variants"].sort()
@@ -162,6 +169,8 @@ def collect(
     meta = {
         "aa_total": len(aa_models),
         "board_size": len(out),
+        "superseded_removed": superseded,
+        "latest_only": latest,
         "local_sources": sorted(local_models.keys()),
         "unmatched_count": len(unmatched),
     }

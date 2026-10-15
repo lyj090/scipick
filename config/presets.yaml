@@ -1,4 +1,4 @@
-# scipick configuration. Copy to `presets.yaml` and adjust, then run:
+# scipick configuration. Copy and adjust, then run:
 #   python -m scipick --presets-file config/presets.yaml
 #
 # Every preset is a view over the same metric set. `rank_by` is either:
@@ -16,11 +16,26 @@
 # given model is skipped and the rest renormalised; the reported coverage tells
 # you how much of the weighting landed.
 #
-# `min_coverage` is a floor on that coverage: models below it are listed as
-# insufficient data instead of being ranked. This matters when a metric is rare.
-# SciCode and Terminal-Bench cover about a third of the catalogue, so a low floor
-# on the coding preset would rank models on long-context reasoning alone. Raise
-# it for a stricter ranking, lower it to include newer models with partial data.
+# ---------------------------------------------------------------------------
+# Three filters decide who appears on a board. All three exist because a
+# leaderboard over *every* model ever released is dominated by tiny, cheap,
+# superseded entries that are irrelevant to picking a model for real work.
+#
+# 1. Latest generation only (global, in scipick/curate.py).
+#    "Claude Opus 4.5" through "Opus 5.5" are all in the catalogue. Six rows for
+#    one product line is noise when you want the state of the art, so only the
+#    newest version of each line is kept.
+#
+# 2. min_coverage -- enough benchmarks to be comparable.
+#    SciCode and Terminal-Bench cover about a third of the catalogue, so without
+#    a floor the coding view ranks models on long-context reasoning alone.
+#
+# 3. min_relative_score -- the frontier gate.
+#    A model must reach this fraction of the best score *in this view* to be
+#    ranked. This is what stops the value board being topped by 4B models: a
+#    model can be 400 points-per-dollar and still be the wrong tool, and a pure
+#    ratio has no way to express that. Set 0 to disable.
+# ---------------------------------------------------------------------------
 
 presets:
   # Absolute ability, price ignored.
@@ -29,6 +44,7 @@ presets:
     description: Absolute ability, price ignored.
     rank_by: score
     min_coverage: 0.5
+    min_relative_score: 0.0     # this board *is* the frontier
     weights:
       scicode: 0.40
       hle: 0.20
@@ -36,12 +52,18 @@ presets:
       lcr: 0.10
       terminalbench_v4_0: 0.10
 
-  # Ability per blended dollar.
+  # Ability per blended dollar, among models worth using.
+  #
+  # min_relative_score is the important line here. Without it the board is won
+  # by 3-4B models scoring ~20/100 at $0.04/1M: technically the best ratio,
+  # practically useless. At 0.65 the cheapest entrants are still near-frontier
+  # small models (Claude Haiku, MiMo Flash class) rather than toys.
   value:
     label: Value
-    description: Ability per blended dollar (3:1 input:output).
+    description: Ability per dollar, among models within reach of the frontier.
     rank_by: efficiency
     min_coverage: 0.5
+    min_relative_score: 0.65
     weights:
       scicode: 0.40
       hle: 0.20
@@ -51,15 +73,15 @@ presets:
 
   # Code generation and agentic terminal work.
   #
-  # min_coverage is high on purpose. SciCode and Terminal-Bench cover roughly a
-  # third of the catalogue, so a lower floor would let a model be ranked here on
-  # long-context reasoning alone -- a coding leaderboard sorted by the wrong
-  # benchmark.
+  # min_coverage is high on purpose: SciCode and Terminal-Bench cover roughly a
+  # third of the catalogue, so a lower floor lets a model be ranked on
+  # long-context reasoning alone -- a coding board sorted by the wrong benchmark.
   coding:
     label: Coding
     description: Weighted toward code generation and terminal execution.
     rank_by: score
     min_coverage: 0.85
+    min_relative_score: 0.0
     weights:
       scicode: 0.60
       terminalbench_v4_0: 0.25
@@ -71,6 +93,7 @@ presets:
     description: For whole-repository or long-document reasoning.
     rank_by: score
     min_coverage: 0.5
+    min_relative_score: 0.6
     weights:
       lcr: 0.50
       scicode: 0.25

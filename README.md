@@ -51,6 +51,11 @@ badly on it. Instead the remaining weights are renormalised — and the row repo
 **coverage**, the share of the weighting that had data. A score at `0.40`
 coverage rests on four-tenths of the intended evidence.
 
+**Only the latest generation of each product line.** The catalogue contains
+Claude Opus 4.5 through 5.5, GPT-4 through 5.5, and so on. Six rows for one
+product line is noise when you want the state of the art, so the newest version
+of each line is kept and the rest are counted as superseded.
+
 **A minimum coverage floor keeps rankings honest.** Renormalisation alone has a
 trap: SciCode and Terminal-Bench cover only about a third of the catalogue, so a
 "coding" preset would happily rank a model on the one metric it happened to have
@@ -58,6 +63,16 @@ trap: SciCode and Terminal-Bench cover only about a third of the catalogue, so a
 preset therefore declares a `min_coverage`; models below it are listed as
 insufficient data rather than ranked. (This was a real bug found while building
 the tool, and the reason the floor exists at all.)
+
+**The value board has a frontier gate.** This is the rule that makes "best
+value" mean something. Ranking purely on points-per-dollar put Gemma 4 E4B
+(score 15.5 at $0.04/1M) above Claude Haiku 5.5 (score 51.1 at $0.20) — 388
+points-per-dollar against 256. Technically correct, practically useless: a model
+scoring 15/100 is not a cheaper way to do your work, it is a model that cannot
+do your work. Each view therefore declares `min_relative_score`: a model must
+reach that fraction of the *best score in that same view* to be ranked. The gate
+is relative, so the bar moves with the field instead of aging into a hardcoded
+threshold.
 
 **"Price not published" is not "free".** The API reports `0` for unpriced
 models. Treating that as `$0` would put them at the top of every value ranking,
@@ -105,6 +120,24 @@ python -m scipick --sources-file config/sources.yaml
 `config/sources.example.yaml` maps route prefixes to display names. It ships
 empty on purpose: which providers you use is your business, not this project's.
 
+## How models are selected
+
+Three filters stack, and all three are reported on the page rather than applied
+silently:
+
+| Filter | Scope | What it removes |
+|---|---|---|
+| Latest generation | global | Superseded versions of a product line |
+| `min_coverage` | per view | Models missing too many of that view's benchmarks |
+| `min_relative_score` | per view | Models too far below that view's frontier |
+
+The third is the one that needs judgement. Set it too low and a value board
+fills with small models nobody would choose; too high and it becomes a
+capability board with extra steps. `0.65` on value keeps genuinely cheap
+frontier-class models (Claude Haiku, MiMo Flash) in play while excluding the
+sub-4B tier. Raise or lower it in `config/presets.yaml` to match your own
+willingness to trade capability for cost.
+
 ## Customising the ranking
 
 This is the point of the tool. Copy `config/presets.yaml` and edit:
@@ -123,6 +156,13 @@ presets:
 
 Available metrics, and `rank_by` semantics, are documented at the top of that
 file. Weights are renormalised, so they need not sum to 1.
+
+## Languages
+
+The page ships English and Chinese and switches client-side, so one static file
+serves either audience. Interface strings live in `scipick/i18n.py`; model names
+and benchmark names come from the data and are not translated. Adding a language
+means adding one dict to `STRINGS`.
 
 ## Deploying your own
 
