@@ -97,6 +97,8 @@ transition:border-color .15s,width .2s}
 border:1px solid var(--line);background:var(--panel);color:var(--fg2);cursor:pointer;
 transition:border-color .15s,color .15s}
 .btn:hover{border-color:var(--line2);color:var(--fg)}
+.btn:active{transform:translateY(1px)}
+.btn{transition:border-color .15s,color .15s,transform .08s ease}
 .btn.icon{padding:7px 9px;line-height:1}
 
 /* ---------- hero ---------- */
@@ -120,8 +122,28 @@ border-color:var(--line);box-shadow:0 -2px 0 var(--accent) inset}
 
 /* ---------- panels ---------- */
 .panel{display:none;padding-top:26px}
-.panel.on{display:block;animation:fade .18s ease}
-@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.panel.on{display:block}
+/* Entrance is a short, single-direction rise. Animating transform/opacity only
+   keeps it off the layout path, so 60 rows and 24 bars stay cheap. */
+.panel.on .cards,
+.panel.on .plot,
+.panel.on .tw,
+.panel.on .desc{animation:rise .34s cubic-bezier(.22,.61,.36,1) backwards}
+.panel.on .cards{animation-delay:.02s}
+.panel.on .plot{animation-delay:.08s}
+.panel.on .tw{animation-delay:.12s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Bars grow from the baseline. Delay is capped by nth-child so a long chart
+   does not stagger for a full second. */
+.panel.on .col .bx{animation:grow .5s cubic-bezier(.22,.61,.36,1) backwards;
+transform-origin:bottom}
+.panel.on .col:nth-child(1) .bx{animation-delay:.06s}
+.panel.on .col:nth-child(2) .bx{animation-delay:.10s}
+.panel.on .col:nth-child(3) .bx{animation-delay:.14s}
+.panel.on .col:nth-child(4) .bx{animation-delay:.18s}
+.panel.on .col:nth-child(5) .bx{animation-delay:.22s}
+.panel.on .col:nth-child(n+6) .bx{animation-delay:.26s}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .panel .desc{color:var(--dim);font-size:14px;margin:0 0 4px}
 
 /* ---------- cards ---------- */
@@ -155,7 +177,8 @@ height:100%;position:relative;min-width:0}
 font-variant-numeric:tabular-nums}
 .col .bx{width:100%;border-radius:4px 4px 0 0;
 background:linear-gradient(180deg,var(--bar2),var(--bar1));transition:opacity .15s}
-.col:hover .bx{opacity:.75}
+.col{transition:transform .14s ease}
+.col:hover{transform:translateY(-2px)}
 .col:first-child .bx{background:linear-gradient(180deg,var(--accent),var(--bar1))}
 .xlab{display:flex;gap:5px;margin-top:8px}
 .xlab .c{flex:1;min-width:0}
@@ -171,9 +194,19 @@ th{font-size:11.5px;color:var(--dim);font-weight:650;text-transform:uppercase;
 letter-spacing:.05em;position:sticky;top:0;background:var(--bg);z-index:1}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);
 font-size:13px}
-tbody tr{transition:background .1s}
+tbody tr{transition:background .12s ease}
 tbody tr:hover{background:var(--soft)}
+/* Dim siblings so the hovered bar is unambiguous in a dense chart. */
+.plot:hover .col .bx{opacity:.45}
+.plot .col:hover .bx{opacity:1}
+.col .bx{transition:opacity .14s ease}
+/* Keyboard users get the same affordance as pointer users. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+/* Filtered-out rows collapse rather than vanishing, so filtering reads as a
+   state change instead of a jump. display is still toggled (see JS) so the
+   row genuinely leaves the layout. */
 tr.hide{display:none}
+tbody tr{will-change:background}
 .rk{color:var(--dim2);font-family:var(--mono);font-size:12.5px;width:40px}
 .rk.top{color:var(--accent);font-weight:700}
 .nm{font-weight:650}
@@ -202,20 +235,48 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);
 color:var(--dim);font-size:13px;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
 footer .sep{color:var(--line2)}
 
+@media(prefers-reduced-motion:reduce){
+*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+transition-duration:.01ms!important;scroll-behavior:auto!important}
+.panel.on .cards,.panel.on .plot,.panel.on .tw,.panel.on .desc,
+.panel.on .col .bx{animation:none}
+.plot:hover .col .bx{opacity:1}
+.col:hover{transform:none}
+}
 @media(max-width:720px){
 .wrap{padding:0 16px 72px}
-.top-in{padding:10px 16px;gap:10px}
+.top-in{padding:10px 16px;gap:8px}
+.brand{font-size:16px}
 h1{font-size:26px}
-.search input{width:150px}
-.search input:focus{width:190px}
+.hero{padding:26px 0 18px}
+.tagline{font-size:14px}
+/* Search takes a full row of its own rather than being squeezed beside the
+   brand and buttons, which wrapped awkwardly at 390px. */
+/* Search and its count share the second row: the count belongs to the filter,
+   so keeping them adjacent reads as one control. */
+.search{order:10;flex:1 1 auto;margin-top:2px;min-width:0}
+.search input,.search input:focus{width:100%}
+#qcount{order:11;flex:0 0 auto;margin-top:2px;padding:4px 0 4px 6px}
 .plot{height:190px}
 .xlab span{height:78px}
-.cards{grid-template-columns:1fr 1fr}
-.card .v{font-size:23px}
+.cards{grid-template-columns:1fr 1fr;gap:10px}
+.card{padding:13px 14px 15px;min-height:104px}
+.card .v{font-size:21px}
+.card .v.sm{font-size:14px}
+th,td{padding:9px 8px}
+.bar{width:34px;margin-right:6px}
 }
 @media(max-width:430px){
 .cards{grid-template-columns:1fr}
+/* Family is the first thing to go: it is the least informative column when
+   the model name usually implies it. Eff. and Cov. keep their space. */
 .fam,.th.family,td.fam{display:none}
+h1{font-size:24px}
+.tab{padding:9px 12px;font-size:13.5px}
+.tab .k{display:none}
+.plot{height:165px}
+.xlab span{height:70px;font-size:9.5px}
+.col .bv{font-size:9.5px}
 }
 """
 
@@ -292,13 +353,34 @@ JS = r"""
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
   var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
   function show(key){
-    tabs.forEach(function(x){ x.setAttribute('aria-selected', String(x.dataset.key===key)); });
+    tabs.forEach(function(x){
+      var on = x.dataset.key === key;
+      x.setAttribute('aria-selected', String(on));
+      // Roving tabindex: only the selected tab is in the tab order, so Tab
+      // moves past the tab strip instead of through every tab.
+      x.setAttribute('tabindex', on ? '0' : '-1');
+    });
     panels.forEach(function(p){ p.classList.toggle('on', p.dataset.key===key); });
     current.tab = key;
     if (history.replaceState) history.replaceState(null,'','#'+key);
     updateCount();
   }
-  tabs.forEach(function(x){ x.addEventListener('click', function(){ show(x.dataset.key); }); });
+  tabs.forEach(function(x, i){
+    x.addEventListener('click', function(){ show(x.dataset.key); });
+    // ARIA tabs pattern: arrow keys move between tabs, Home/End jump to the
+    // ends. Without this the tabs are reachable but not navigable by keyboard.
+    x.addEventListener('keydown', function(e){
+      var k = e.key, next = null;
+      if (k === 'ArrowRight') next = tabs[(i+1) % tabs.length];
+      else if (k === 'ArrowLeft') next = tabs[(i-1+tabs.length) % tabs.length];
+      else if (k === 'Home') next = tabs[0];
+      else if (k === 'End') next = tabs[tabs.length-1];
+      if (!next) return;
+      e.preventDefault();
+      show(next.dataset.key);
+      next.focus();
+    });
+  });
 
   /* ---------- search ---------- */
   var box = document.getElementById('q');
@@ -699,7 +781,8 @@ def render(
       placeholder="{esc(s['search.placeholder'])}" data-i18n-ph="search.placeholder"
       aria-label="{esc(s['search.placeholder'])}">
   </label>
-  <span class="btn icon" id="qcount" style="border:none;background:none;color:var(--dim2);
+  <span class="btn icon" id="qcount" role="status" aria-live="polite"
+    style="border:none;background:none;color:var(--dim2);
     font-family:var(--mono);font-size:12px;padding:7px 2px"></span>
   {lang_switch}
   <button class="btn icon" id="themebtn" data-i18n-title="theme.toggle"
