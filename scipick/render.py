@@ -41,6 +41,24 @@ _BENCH_DESC_EN = {
     "bench.terminal": "Agentic execution in a real shell - multi-step command-line tasks.",
 }
 
+#: Categorical palette for the scatter, applied to the vendors that reach the
+#: frontier in a given view. Chosen to stay distinguishable from each other and
+#: from the grey mass, and to work on both the light and dark paper. Ordered so
+#: the first few are the most separable, since most views have fewer than eight
+#: notable vendors.
+VENDOR_COLORS: tuple[str, ...] = (
+    "#c2410c",  # burnt orange
+    "#1d4ed8",  # blue
+    "#0f766e",  # teal
+    "#a21caf",  # magenta
+    "#4d7c0f",  # olive
+    "#b45309",  # amber-brown
+    "#7c3aed",  # violet
+    "#0369a1",  # steel blue
+    "#be123c",  # crimson
+    "#15803d",  # green
+)
+
 #: Presets shipped with scipick, whose descriptions have translations.
 BUILTIN_KEYS = frozenset(DEFAULT_PRESETS)
 
@@ -214,18 +232,37 @@ border-radius:var(--radius);padding:14px 16px 10px;box-shadow:var(--shadow)}
 paint-order:stroke;stroke:var(--panel);stroke-width:3.2px;stroke-linejoin:round}
 .fline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;
 stroke-linecap:round;opacity:.85;vector-effect:non-scaling-stroke}
-.fdot{fill:var(--dim2);opacity:.5}
-.fdot.front{fill:var(--accent);opacity:1}
-.fdot.top{fill:var(--gold);stroke:var(--panel);stroke-width:1.5;opacity:1}
-[data-theme="dark"] .fdot.top{fill:#e8c26a}
-.fdot:hover{opacity:1;stroke:var(--fg);stroke-width:1.5}
+/* Dots. Fill is either the vendor colour (set inline) or the neutral grey, so
+   the frontier/top tiers are carried by opacity and ring instead — an inline
+   fill would beat any stylesheet rule, and the two encodings must not fight.
+   Order matters here: the vendor ring selector carries three attribute-level
+   components, so the top-three gold ring has to match or exceed that
+   specificity or it is silently overridden to the neutral colour. */
+.fdot{fill:var(--dim2);opacity:.45}
+.fdot.front{opacity:.95}
+/* A vendor-coloured dot needs a ring in the panel colour, or the darker
+   swatches merge into the frontier line they sit on. */
+.fdot[data-vendor]:not([data-vendor=""]){stroke:var(--panel);stroke-width:1}
+.fdot[data-vendor]:not([data-vendor=""]).front{stroke-width:1.8}
+/* Top three: gold ring. Both selectors are needed — the bare one covers a
+   model whose vendor has no swatch, the qualified one wins over the rule
+   above. */
+.fdot.top,
+.fdot[data-vendor]:not([data-vendor=""]).top{opacity:1;stroke:var(--gold);stroke-width:1.8}
+[data-theme="dark"] .fdot.top,
+[data-theme="dark"] .fdot[data-vendor]:not([data-vendor=""]).top{stroke:#e8c26a}
+.fdot:hover{opacity:1;stroke:var(--fg);stroke-width:1.6}
 .flegend{display:flex;gap:18px;flex-wrap:wrap;padding:8px 2px 4px;
 border-top:1px solid var(--line);margin-top:8px;font-size:12px;color:var(--dim)}
 .flegend span{display:flex;align-items:center;gap:6px}
+.fvendors{display:flex;gap:14px;flex-wrap:wrap;padding:0 2px 6px;
+font-size:12px;color:var(--dim)}
+.fvendors .vsw{display:flex;align-items:center;gap:6px}
 .sw{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
-.sw.front{background:var(--accent)}
-.sw.top{background:var(--gold)}
+.sw.line{background:var(--accent);height:3px;border-radius:2px;width:14px}
+.sw.top{background:var(--panel);border:2px solid var(--gold)}
 .sw.other{background:var(--dim2);opacity:.55}
+[data-theme="dark"] .sw.top{border-color:#e8c26a}
 
 /* ---------- table controls: expand + sort ---------- */
 .tctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 -4px;
@@ -729,6 +766,13 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
     same score, or better for the same money. Points on the line are the only
     ones where spending more strictly buys more.
 
+    Dots are coloured by vendor, but only for the vendors that actually reach
+    the frontier or the top three in this view. Colouring all 33 creators would
+    need a palette nobody can tell apart and a legend longer than the chart;
+    colouring the handful that matter answers "who is competing at this price".
+    Everything else is a plain grey dot, which is also the honest reading —
+    it is not in contention.
+
     Rendered as inline SVG in a fixed viewBox so it scales responsively without
     JS layout, and stays crisp at any width. Prices are log-scaled because the
     usable range spans more than two orders of magnitude.
@@ -838,14 +882,32 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
 
     top_names = {m["name"] for m in _ranked_for(models, preset)[:top]} if top else set()
 
+    # Vendors worth a colour: those on the frontier, plus the top three. Sorted
+    # so a given vendor always gets the same swatch across views and rebuilds
+    # rather than depending on iteration order.
+    notable = sorted(
+        {m["creator"] for _, _, m in frontier if m.get("creator")}
+        | {m["creator"] for _, _, m in rows
+           if m["name"] in top_names and m.get("creator")}
+    )
+    palette = {}
+    for i, vendor in enumerate(notable):
+        palette[vendor] = VENDOR_COLORS[i % len(VENDOR_COLORS)]
+
     dots = []
     for price, score, m in rows:
         is_f = id(m) in frontier_keys
         is_top = m["name"] in top_names
-        cls = "fdot top" if is_top else ("fdot front" if is_f else "fdot")
         r = 5.0 if is_top else (3.6 if is_f else 2.6)
+        vendor = m.get("creator") or ""
+        colour = palette.get(vendor)
+        # Notable vendors get a ring so they read against the grey mass; the
+        # frontier and top-three tiers are conveyed by radius.
+        style = f' style="fill:{colour}"' if colour else ""
+        cls = "fdot top" if is_top else ("fdot front" if is_f else "fdot")
         dots.append(
-            f'<circle cx="{x(price):.1f}" cy="{y(score):.1f}" r="{r}" class="{cls}">'
+            f'<circle cx="{x(price):.1f}" cy="{y(score):.1f}" r="{r}" class="{cls}"'
+            f'{style} data-vendor="{esc(vendor)}">'
             f'<title>{esc(m["name"])} — {score:.1f} @ {fmt_price(price)}/1M</title>'
             f"</circle>"
         )
@@ -900,6 +962,20 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
         )
 
     s = strings_for(DEFAULT_LANG)
+    # Vendor swatches, most-represented first among the notable set, so the
+    # legend reads in order of how much of the chart each colour accounts for.
+    counts = {}
+    for price, score, m in rows:
+        v = m.get("creator") or ""
+        if v in palette:
+            counts[v] = counts.get(v, 0) + 1
+    vendor_legend = "".join(
+        f'<span class="vsw"><i class="sw" style="background:{palette[v]}"></i>'
+        f"{esc(v)}</span>"
+        for v, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    )
+    vendor_row = (f'<div class="fvendors">{vendor_legend}</div>'
+                  if vendor_legend else "")
     return (
         f'<figure class="fig">'
         f'<svg viewBox="0 0 {W:.0f} {H:.0f}" role="img" '
@@ -914,13 +990,14 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
         f'data-i18n="frontier.axis.score">{esc(s["frontier.axis.score"])}</text>'
         f"</svg>"
         f'<div class="flegend">'
-        f'<span><i class="sw front"></i><span data-i18n="frontier.legend.frontier">'
+        f'<span><i class="sw line"></i><span data-i18n="frontier.legend.frontier">'
         f'{esc(s["frontier.legend.frontier"])}</span></span>'
         f'<span><i class="sw top"></i><span data-i18n="frontier.legend.top">'
         f'{esc(s["frontier.legend.top"])}</span></span>'
         f'<span><i class="sw other"></i><span data-i18n="frontier.legend.other">'
         f'{esc(s["frontier.legend.other"])}</span></span>'
-        f"</div></figure>"
+        f"</div>"
+        f"{vendor_row}</figure>"
     )
 
 

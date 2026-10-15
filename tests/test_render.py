@@ -222,6 +222,47 @@ class FrontierChartTest(unittest.TestCase):
         self.assertGreater(n_dots, 3)
         self.assertLess(n_labels, n_dots)
 
+    def test_top_three_ring_outranks_the_vendor_ring(self):
+        """The gold ring must not be overridden by the vendor-colour ring.
+
+        The vendor rule carries an attribute selector and a :not(), so a plain
+        `.fdot.top` loses to it and the top-three marker silently reverts to the
+        neutral ring. Caught by reading getComputedStyle in a real browser.
+        """
+        html = render(board(), DEFAULT_PRESETS)
+        # The qualified selector has to be present, not just the bare one.
+        self.assertIn('.fdot[data-vendor]:not([data-vendor=""]).top', html)
+        self.assertIn("stroke:var(--gold)", html)
+
+    def test_vendor_colours_only_cover_contenders(self):
+        """Colouring all 33 creators would need an indistinguishable palette."""
+        from scipick.render import VENDOR_COLORS
+        html = render(board(), DEFAULT_PRESETS)
+        used = set(re.findall(r'style="fill:(#[0-9a-f]{6})"', html))
+        self.assertTrue(used)
+        # A board of three models must not consume the whole palette.
+        self.assertLessEqual(len(used), len(VENDOR_COLORS))
+        self.assertLessEqual(len(used), len(board()))
+
+    def test_every_coloured_dot_has_a_legend_entry(self):
+        """A colour with no legend entry is unreadable, so the two must agree."""
+        big = board() + [
+            model(f"Filler {i}", capability=20.0, coding=20.0, longcontext=20.0,
+                  price=0.5 + i, scicode=0.2, lcr=0.2, hle=0.1, aaii=20.0,
+                  terminal=0.2)
+            for i in range(12)
+        ]
+        html = render(big, DEFAULT_PRESETS, limit=60)
+        body = panels(html)["capability"]
+        dotted = set(re.findall(r'class="fdot[^"]*"\s*style="fill:(#[0-9a-f]{6})"',
+                                body))
+        f = body.find('<figure class="fig"')
+        fig = body[f:body.find("</figure>", f)]
+        legend = set(re.findall(r'class="sw" style="background:(#[0-9a-f]{6})"', fig))
+        self.assertTrue(dotted)
+        self.assertEqual(dotted - legend, set(),
+                         "a dot colour has no legend swatch")
+
     def test_short_name_drops_serving_variant(self):
         self.assertEqual(_short_name("Claude Opus 5.5 (Max, Default Fallback)"),
                          "Claude Opus 5.5")
