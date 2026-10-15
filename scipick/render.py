@@ -460,12 +460,20 @@ tbody tr{position:relative}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);
 white-space:nowrap}
-/* The header pins just below the sticky page bar. ``top:0`` would tuck it
+th{font-size:11.5px;color:var(--dim);font-weight:650;text-transform:uppercase;
+letter-spacing:.05em}
+/* Sticky headers belong to the ranking tables, which are hundreds of rows long
+   and whose heading is worth keeping in view. The methodology tables are four
+   rows; a pinning header there buys nothing and misbehaves, because their
+   container scrolls horizontally (see .tw) and that makes the cell stick to a
+   scrollport that never scrolls vertically — the header drifts below its own
+   first row. Scope the rule to the ranking tables rather than to every th.
+
+   The header pins just below the sticky page bar. ``top:0`` would tuck it
    underneath that bar, where its lower z-index loses to the page header.
    ``--topbar`` is set per breakpoint because the bar wraps to two rows on
    narrow screens. */
-th{font-size:11.5px;color:var(--dim);font-weight:650;text-transform:uppercase;
-letter-spacing:.05em;position:sticky;top:var(--topbar,67px);background:var(--bg);z-index:1}
+.rank th{position:sticky;top:var(--topbar,67px);background:var(--bg);z-index:1}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);
 font-size:13px}
 tbody tr{transition:background .12s ease}
@@ -499,6 +507,10 @@ h3{font-size:15px;margin:0 0 4px;font-weight:650}
 .wt{font-family:var(--mono);font-size:12.5px}
 .wt em{font-style:normal;color:var(--dim2)}
 .wt b{font-weight:650;color:var(--fg)}
+/* Methodology only. The weight list wraps between entries rather than running
+   as one 819px line, which is what pushed the last column out of view. */
+.wcell{white-space:normal;max-width:520px}
+.witem{display:inline-block;white-space:nowrap;margin-right:11px}
 
 /* ---------- footer ---------- */
 footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);
@@ -574,6 +586,17 @@ h1{font-size:24px}
 .plead{font-size:12.5px}
 .tctl{gap:8px}
 .btn.tall{margin-left:0}
+/* The compare header is a title plus a search box plus Clear. At this width
+   flex-wrap drops Clear onto a line of its own and the search box onto a third,
+   so the control reads as three unrelated rows. Give the search box the width
+   and let Clear sit beside it, which is where a thumb expects to find both. */
+.pk-head{gap:8px}
+.pk-head .spacer{display:none}
+.pk-title{order:1}
+.pk-count{order:1}
+.pk-search{order:2;flex:1 1 90px;min-width:0}
+.pk-search input,.pk-search input:focus{width:100%;min-width:0}
+#pkclear{order:3;flex:0 0 auto}
 }
 """
 
@@ -1574,21 +1597,30 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
         f'{fmt_price(v)}</text>'
         for v in ticks
     )
-    # Y gridlines. The label precision adapts to the range: with a narrow
-    # spread, fixed integers all render as the same number ("50 50 50 50"),
-    # which is worse than no axis at all. Pick the decimals needed to tell the
-    # ticks apart.
+    # Y gridlines at round numbers. Dividing the range into four equal parts
+    # (as this did) puts gridlines at values like 17.7 and 53.2: correct, but a
+    # reader cannot see at a glance that the spacing is even, and the labels
+    # carry digits that are noise. Choose a 1/2/2.5/5/10 step instead, then take
+    # the multiples that fall inside the range.
     span = smax - smin
-    if span >= 8:
-        decimals = 0
-    elif span >= 0.8:
-        decimals = 1
-    else:
-        decimals = 2
+    raw = span / 4 if span > 0 else 1.0
+    mag = 10 ** math.floor(math.log10(raw)) if raw > 0 else 1.0
+    norm = raw / mag
+    step = 10 * mag
+    for mult in (1, 2, 2.5, 5, 10):
+        if norm <= mult:
+            step = mult * mag
+            break
+    decimals = 0
+    probe = step
+    while probe < 1 and decimals < 3:
+        probe *= 10
+        decimals += 1
+    i0 = math.ceil(smin / step - 1e-9)
+    i1 = math.floor(smax / step + 1e-9)
     yticks = []
-    steps = 4
-    for i in range(steps + 1):
-        v = smin + span * i / steps
+    for i in range(i0, i1 + 1):
+        v = i * step
         yticks.append(
             f'<line x1="{PL:.0f}" y1="{y(v):.1f}" x2="{W-PR:.0f}" y2="{y(v):.1f}" '
             f'class="fg"/>'
@@ -2436,9 +2468,28 @@ def render(
         f"</section>"
     )
 
+    def _weight_cell(p: Preset) -> str:
+        # Each weight is its own inline-block so the cell can wrap *between*
+        # weights. Left as one run of text the column is 819px wide on its own,
+        # which pushed the coverage floor off the right edge of every screen.
+        # The metric keys are single long tokens, so there is nowhere else to
+        # break the line.
+        return "".join(
+            f'<span class="witem"><b>{esc(mk)}</b> {w:.2f}</span>'
+            for mk, w in p.weights.items()
+        )
+
+    def _view_cell(k: str, p: Preset) -> str:
+        # Same rule as the tab strip: print the key only when it says something
+        # the label does not, so "Value / value" becomes just "Value".
+        if _norm_label(k) == _norm_label(p.label):
+            return f"<b>{esc(p.label)}</b>"
+        return (f"<b>{esc(p.label)}</b><br>"
+                f"<em class='wt'>{esc(k)}</em>")
+
     weight_rows = "".join(
-        f"<tr><td><b>{esc(p.label)}</b><br><em class='wt'>{esc(k)}</em></td>"
-        f"<td class='wt'>{' · '.join(f'<b>{esc(mk)}</b> {w:.2f}' for mk, w in p.weights.items())}</td>"
+        f"<tr><td>{_view_cell(k, p)}</td>"
+        f"<td class='wt wcell'>{_weight_cell(p)}</td>"
         f"<td class='wt'><em>{esc(p.rank_by)}</em></td>"
         f"<td class='num'>{p.min_coverage:.0%}</td></tr>"
         for k, p in presets.items()

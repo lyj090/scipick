@@ -308,6 +308,33 @@ class FrontierChartTest(unittest.TestCase):
         self.assertEqual(_short_name("Claude Opus 5.5 (Max, Default Fallback)"),
                          "Claude Opus 5.5")
 
+    def test_y_ticks_land_on_round_numbers(self):
+        """Equal division of the range produces ticks nobody can read.
+
+        Splitting the score range into four equal parts gave labels like 17.7
+        and 53.2. They were accurate, but the reader cannot see that the spacing
+        is even, and the extra digits are noise. The step must be a round one.
+        """
+        svg = _frontier(board(), DEFAULT_PRESETS["capability"])
+        ticks = [float(t) for t in
+                 re.findall(r'class="ft" text-anchor="end">([^<]+)</text>', svg)]
+        self.assertGreaterEqual(len(ticks), 2, f"too few y ticks: {ticks}")
+        steps = [round(b - a, 6) for a, b in zip(ticks, ticks[1:])]
+        self.assertEqual(len(set(steps)), 1, f"uneven y tick spacing: {ticks}")
+        # A round step is 1, 2, 2.5, 5 times a power of ten.
+        step = steps[0]
+        self.assertIn(round(step / 10 ** int(f"{step:e}".split("e")[1]), 6),
+                      (1.0, 2.0, 2.5, 5.0), f"unround y step {step}")
+
+    def test_y_ticks_stay_inside_the_plotted_range(self):
+        """A tick drawn outside the axis would sit on top of the plot border."""
+        svg = _frontier(board(), DEFAULT_PRESETS["capability"])
+        ticks = [float(t) for t in
+                 re.findall(r'class="ft" text-anchor="end">([^<]+)</text>', svg)]
+        scores = [m["scores"]["capability"] for m in board()]
+        self.assertGreaterEqual(min(ticks), min(scores) - 12)
+        self.assertLessEqual(max(ticks), max(scores) + 12)
+
     def test_no_priced_models_says_so(self):
         # price=0 is how the pipeline records "no published price".
         unpriced = [model("Free Model", capability=50.0, price=0,
@@ -1007,6 +1034,29 @@ class LayoutTest(unittest.TestCase):
         # A transparent sticky header lets rows show through as they scroll.
         self.assertRegex(self.html, r"position:sticky;top:var\(--topbar[^}]*"
                                     r"background:var\(--bg\);z-index:1")
+
+    def test_only_the_ranking_tables_pin_their_header(self):
+        """A four-row methodology table must not get a sticky header.
+
+        Those tables sit in a horizontally scrolling .tw, and a sticky cell
+        inside one sticks to a scrollport that never scrolls vertically, so the
+        header ends up painted below its own first row. Measured: th.top 304
+        against row.top 278. The rule is scoped to .rank, which is the class the
+        ranking tables carry.
+        """
+        self.assertIn(".rank th{position:sticky", self.html)
+        # The unscoped form is what caused the drift; it must not come back.
+        self.assertNotRegex(self.html, r"(?<!\.rank )th\{[^}]*position:sticky")
+        # The shared header typography must survive the scoping.
+        self.assertRegex(self.html, r"th\{[^}]*text-transform:uppercase")
+
+    def test_ranking_tables_carry_the_rank_class(self):
+        """The scoped rule is only correct if the tables it targets have .rank."""
+        for panel in panels(self.html).values():
+            self.assertIn('<table class="rank">', panel)
+        # And the methodology tables must not, or they would pin after all.
+        method = self.html[self.html.index("method.title"):]
+        self.assertNotIn('<table class="rank">', method)
 
     def test_collapsed_rows_lose_to_the_filter_rule(self):
         """tr.hide must still win over the row-cap rule.
