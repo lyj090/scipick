@@ -777,6 +777,66 @@ class SearchCostTest(unittest.TestCase):
 
 
 
+    def test_picker_keeps_the_serving_variant_searchable(self):
+        """Clipping the variant from the label must not remove it from search.
+
+        The variant is no longer displayed, but it is still part of the name
+        upstream. Someone pasting "Claude Opus 5.5 (Max, Default Fallback)" out
+        of the source data has to keep matching, so the hidden tail ships as a
+        search-only attribute on the rows that have one.
+        """
+        board_with_variant = [
+            model("Claude Opus 5.5 (Max, Default Fallback)", capability=90.0),
+            model("Gemma 4 E4B", capability=20.0),
+        ]
+        html = render(board_with_variant, DEFAULT_PRESETS)
+        self.assertIn('data-alias="(Max, Default Fallback)"', html)
+        self.assertIn("it.getAttribute('data-alias')", html)
+        # A name with no variant must not grow an empty attribute.
+        self.assertNotIn('data-alias=""', html)
+
+
+class DisplayNameTest(unittest.TestCase):
+    """One model must be named the same way on every surface.
+
+    The bar chart and the scatter already trimmed the serving variant while the
+    podium and the table did not, so the current leader appeared as
+    "Claude Opus 5.5" in one place and "Claude Opus 5.5 (Max, Default
+    Fallback)" a screen below.
+    """
+
+    def setUp(self):
+        self.m = model("Claude Opus 5.5 (Max, Default Fallback)",
+                       capability=90.0, coding=88.0, longcontext=95.0,
+                       price=60.0, scicode=0.9, lcr=0.95, hle=0.8,
+                       aaii=90.0, terminal=0.8)
+        self.other = model("Mid Balanced", capability=65.0, coding=70.0,
+                           longcontext=60.0, price=4.0, scicode=0.7, lcr=0.6,
+                           hle=0.5, aaii=65.0, terminal=0.6)
+        self.html = render([self.m, self.other], DEFAULT_PRESETS)
+        self.panel = panels(self.html)["capability"]
+
+    def test_podium_name_has_no_variant(self):
+        self.assertEqual(podium_names(self.panel),
+                         ["Claude Opus 5.5", "Mid Balanced"])
+
+    def test_table_name_has_no_variant(self):
+        self.assertIn('<span class="nm">Claude Opus 5.5</span>', self.panel)
+
+    def test_bar_label_and_scatter_label_have_no_variant(self):
+        self.assertIn('<div class="c" title="Claude Opus 5.5">', self.panel)
+        self.assertIn('>Claude Opus 5.5</text>', self.panel)
+
+    def test_picker_name_has_no_variant(self):
+        self.assertIn('<span class="pi-n">Claude Opus 5.5</span>', self.html)
+
+    def test_display_name_helper_keeps_a_name_without_a_variant(self):
+        from scipick.render import display_name
+        self.assertEqual(display_name("Gemma 4 E4B"), "Gemma 4 E4B")
+        self.assertEqual(display_name("Muse Wonder Full (Max)"),
+                         "Muse Wonder Full")
+
+
 class FullRankingTest(unittest.TestCase):
     def setUp(self):
         self.html = render(board(), DEFAULT_PRESETS, limit=2)

@@ -1377,9 +1377,12 @@ JS = r"""
       var famHit = q && fam.indexOf(q) >= 0;
       var n = 0;
       g.querySelectorAll('.pk-item').forEach(function(it){
-        // The haystack is the item's own text plus its data-model slug, both
-        // folded. The slug is what makes a pasted canonical name work.
-        var hay = fold(it.textContent + ' ' + (it.getAttribute('data-model') || ''));
+        // The haystack is the item's own text plus its data-model slug and the
+        // serving variant the display name drops, all folded. The slug is what
+        // makes a pasted canonical name work; the alias keeps the raw upstream
+        // name (with its "(Max, Default Fallback)" tail) searchable.
+        var hay = fold(it.textContent + ' ' + (it.getAttribute('data-model') || '')
+                       + ' ' + (it.getAttribute('data-alias') || ''));
         var hit = !q || famHit || hay.indexOf(q) >= 0;
         it.hidden = !hit;
         if (hit) n++;
@@ -1647,7 +1650,7 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
             f'<circle cx="{x(price):.1f}" cy="{y(score):.1f}" r="{r}" class="{cls}"'
             f'{style} data-vendor="{esc(vendor)}" '
             f'data-model="{esc(m["canonical"])}">'
-            f'<title>{esc(m["name"])} — {score:.1f} @ {fmt_price(price)}/1M</title>'
+            f'<title>{esc(display_name(m["name"]))} — {score:.1f} @ {fmt_price(price)}/1M</title>'
             f"</circle>"
         )
 
@@ -1748,13 +1751,25 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
     )
 
 
-def _short_name(name: str, limit: int = 22) -> str:
-    """Trim a model name for an axis label.
+def display_name(name: str) -> str:
+    """Model name without its parenthesised serving variant.
 
-    Names carry a parenthesised serving variant (e.g. "(Max, Default
-    Fallback)") which is irrelevant once the model is identified.
+    The API distinguishes rows that the board treats as one model by appending
+    a routing note: "(Max, Default Fallback)", "(High)", "(Reasoning)". 123 of
+    the 142 parenthesised names on the board are one of these tiers, and none of
+    them is needed to identify a row — after stripping, all 374 display names
+    are still unique.
+
+    Keeping them caused the same model to be labelled two ways a screen apart:
+    the bar chart and the scatter already trimmed the suffix, while the podium
+    and the table did not.
     """
-    base = name.split(" (")[0]
+    return name.split(" (")[0].strip()
+
+
+def _short_name(name: str, limit: int = 22) -> str:
+    """Trim a model name for an axis label."""
+    base = display_name(name)
     return base if len(base) <= limit else base[: limit - 1] + "…"
 
 
@@ -1813,14 +1828,14 @@ def _bars(models: list[dict], preset: Preset, top: int = 20) -> str:
         short = _short_name(m["name"], 30)
         cols.append(
             f'<div class="col" data-model="{esc(m["canonical"])}" '
-            f'data-name="{esc(m["name"])}" '
-            f'title="{esc(m["name"])} — {v:.1f}" role="button" tabindex="0" '
-            f'aria-pressed="false" aria-label="{esc(m["name"])}">'
+            f'data-name="{esc(display_name(m["name"]))}" '
+            f'title="{esc(display_name(m["name"]))} — {v:.1f}" role="button" tabindex="0" '
+            f'aria-pressed="false" aria-label="{esc(display_name(m["name"]))}">'
             f'<span class="bv">{v:.1f}</span>'
             f'<div class="bx" style="height:{h:.1f}%"></div></div>'
         )
     labels = "".join(
-        f'<div class="c" title="{esc(m["name"])}">'
+        f'<div class="c" title="{esc(display_name(m["name"]))}">'
         f'<span>{esc(_short_name(m["name"], 30))}</span></div>'
         for m in rows
     )
@@ -1866,7 +1881,7 @@ def _eligible(model: dict, preset: Preset) -> bool:
 
 def _row(rank: int, m: dict, preset: Preset, max_score: float,
          deep: bool = False) -> str:
-    name = esc(m["name"])
+    name = esc(display_name(m["name"]))
     if m.get("available_locally"):
         name += f'<span class="pill local" data-i18n="row.local">local</span>'
     if m["sources"]:
@@ -2074,7 +2089,7 @@ def _podium_rows(rows: list[dict], preset: Preset, mode: str) -> str:
             f'<div class="prow p{i}">'
             f'<div class="pmedal">{i}</div>'
             f'<div class="pbody">'
-            f'<div class="pname">{esc(m["name"])}{badges}</div>'
+            f'<div class="pname">{esc(display_name(m["name"]))}{badges}</div>'
             f'<div class="pmeta">{esc(m["family"])} &middot; '
             f'cov {m["coverage"][preset.key]:.2f}</div>'
             f"</div>"
@@ -2156,7 +2171,7 @@ def _podium(models: list[dict], preset: Preset, value_floor: float = 0.0) -> str
         lead = (
             f'<div class="plead">'
             f'<span class="plead-k" data-i18n="{lead_key}">{lead_key}</span>'
-            f'<span class="plead-n">{esc(top["name"])}</span>'
+            f'<span class="plead-n">{esc(display_name(top["name"]))}</span>'
             f'<span class="plead-v">{num}{unit}</span></div>'
         )
 
@@ -2368,18 +2383,28 @@ def render(
     for fam in sorted(order, key=lambda f: (-len(order[f]), f.lower())):
         rows = sorted(order[fam], key=lambda m: m.get("release_date") or "",
                       reverse=True)
-        # The picker items carry no data-search attribute: the haystack is just
-        # the item's own text plus its group's family, which the filter reads
-        # from the DOM. Storing it again on 374 buttons cost ~4 KB gzipped for
-        # nothing.
-        items = "".join(
-            f'<button type="button" class="pk-item" data-model="{esc(m["canonical"])}" '
-            f'aria-pressed="false">'
-            f'<span class="pi-n">{esc(m["name"])}</span>'
-            f'<span class="pi-d">{esc(_fmt_date(m.get("release_date") or ""))}</span>'
-            f"</button>"
-            for m in rows
-        )
+        # The picker items carry no data-search attribute: the haystack is the
+        # item's own text plus its data-model slug, which the filter reads from
+        # the DOM. Storing a haystack again on 374 buttons cost ~4 KB gzipped
+        # for nothing.
+        #
+        # The serving variant is the exception. It is no longer displayed, but
+        # it is still part of the model's name upstream, and someone pasting
+        # "Claude Opus 5.5 (Max, Default Fallback)" out of the source data has
+        # to keep matching. Only the 142 rows that have a variant carry it.
+        def _item(m: dict) -> str:
+            full = m["name"]
+            variant = full[len(display_name(full)):].strip()
+            alias = (f' data-alias="{esc(variant)}"' if variant else "")
+            return (
+                f'<button type="button" class="pk-item" '
+                f'data-model="{esc(m["canonical"])}"{alias} aria-pressed="false">'
+                f'<span class="pi-n">{esc(display_name(full))}</span>'
+                f'<span class="pi-d">{esc(_fmt_date(m.get("release_date") or ""))}</span>'
+                f"</button>"
+            )
+
+        items = "".join(_item(m) for m in rows)
         groups.append(
             f'<div class="pk-group" data-family="{esc(fam)}">'
             f'<div class="pg-head"><span class="pg-n">{esc(fam)}</span>'
