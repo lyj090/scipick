@@ -45,15 +45,20 @@ BUILTIN_KEYS = frozenset(DEFAULT_PRESETS)
 
 CSS = """
 :root{
---bg:#fbfbfa;--panel:#ffffff;--soft:#f4f4f2;--soft2:#ececea;
---line:#e6e6e3;--line2:#d6d6d2;
---fg:#171715;--fg2:#3a3a36;--dim:#71716b;--dim2:#9a9a93;
---accent:#2563eb;--accent-soft:#eff4ff;
---good:#1a7f4b;--good-soft:#e9f5ee;
---warn:#b45309;--warn-soft:#fdf4e7;
---bar1:#2563eb;--bar2:#60a5fa;
---shadow:0 1px 2px rgba(16,18,20,.04),0 4px 14px rgba(16,18,20,.04);
---radius:14px;
+/* Palette follows the reading-first sites this is modelled on: near-white
+   paper, one restrained accent, and hierarchy carried by type and space
+   rather than by borders and shadows. */
+--bg:#fdfdfc;--panel:#ffffff;--soft:#f6f6f4;--soft2:#eeeeeb;
+--line:#e8e8e4;--line2:#d8d8d3;
+--fg:#17171a;--fg2:#3b3b3f;--dim:#6f6f75;--dim2:#9c9ca3;
+--accent:#2563eb;--accent-soft:#f0f5ff;
+--good:#18794e;--good-soft:#e9f5ee;
+--warn:#a15c07;--warn-soft:#fdf5e9;
+--gold:#b08324;--silver:#8a8a90;--bronze:#a2703f;
+--bar1:#2563eb;--bar2:#7aa7f5;
+--shadow:0 1px 2px rgba(16,18,20,.03);
+--shadow-lift:0 2px 4px rgba(16,18,20,.04),0 12px 28px rgba(16,18,20,.07);
+--radius:16px;
 --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",
   "Microsoft YaHei","Noto Sans SC",sans-serif;
 --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
@@ -79,10 +84,10 @@ code{background:var(--soft);padding:2px 6px;border-radius:5px;font-size:.86em;
 font-family:var(--mono);color:var(--fg2)}
 
 /* ---------- layout ---------- */
-.wrap{max-width:1240px;margin:0 auto;padding:0 24px 96px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px 120px}
 header.top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
 backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.top-in{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;
+.top-in{max-width:1120px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;
 gap:14px;flex-wrap:wrap}
 .brand{font-weight:700;font-size:17px;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
 .brand .dot{width:9px;height:9px;border-radius:3px;background:var(--accent);flex:none}
@@ -102,17 +107,17 @@ transition:border-color .15s,color .15s}
 .btn.icon{padding:7px 9px;line-height:1}
 
 /* ---------- hero ---------- */
-.hero{padding:38px 0 26px}
-h1{font-size:34px;line-height:1.15;margin:0 0 12px;font-weight:750;letter-spacing:-.9px}
+.hero{padding:64px 0 36px}
+h1{font-size:46px;line-height:1.08;margin:0 0 18px;font-weight:760;letter-spacing:-1.8px}
 h1 .mark{color:var(--accent)}
-.tagline{color:var(--dim);font-size:15px;max-width:700px;margin:0}
-.stamp{color:var(--dim2);font-size:12.5px;margin-top:14px;font-family:var(--mono)}
+.tagline{color:var(--fg2);font-size:17px;line-height:1.65;max-width:640px;margin:0}
+.stamp{color:var(--dim2);font-size:12.5px;margin-top:20px;font-family:var(--mono)}
 
 /* ---------- tabs ---------- */
-.tabs{display:flex;gap:4px;margin:26px 0 0;flex-wrap:wrap;
+.tabs{display:flex;gap:4px;margin:34px 0 0;flex-wrap:wrap;
 border-bottom:1px solid var(--line);padding-bottom:0}
 .tab{appearance:none;border:1px solid transparent;border-bottom:none;background:transparent;
-font:inherit;font-size:14.5px;font-weight:600;color:var(--dim);padding:10px 18px;
+font:inherit;font-size:15px;font-weight:600;color:var(--dim);padding:11px 20px;
 cursor:pointer;border-radius:10px 10px 0 0;position:relative;top:1px;
 transition:color .15s,background .15s}
 .tab:hover{color:var(--fg2)}
@@ -128,10 +133,13 @@ border-color:var(--line);box-shadow:0 -2px 0 var(--accent) inset}
 .panel.on .cards,
 .panel.on .plot,
 .panel.on .tw,
+.panel.on .note,
 .panel.on .desc{animation:rise .34s cubic-bezier(.22,.61,.36,1) backwards}
-.panel.on .cards{animation-delay:.02s}
-.panel.on .plot{animation-delay:.08s}
-.panel.on .tw{animation-delay:.12s}
+.panel.on .desc{animation-delay:0s}
+.panel.on .cards{animation-delay:.04s}
+.panel.on .note{animation-delay:.06s}
+.panel.on .plot{animation-delay:.10s}
+.panel.on .tw{animation-delay:.14s}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* Bars grow from the baseline. Delay is capped by nth-child so a long chart
    does not stagger for a full second. */
@@ -149,9 +157,37 @@ transform-origin:bottom}
 /* ---------- cards ---------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;
 margin:20px 0 8px}
+
+/* ---------- podium: the top 3, ability and value side by side ---------- */
+.podiums{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:28px 0 10px}
+.podium{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+padding:22px 22px 8px;box-shadow:var(--shadow)}
+.podium h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:0}
+.podium .sub{color:var(--dim2);font-size:12.5px;margin:5px 0 16px;line-height:1.5}
+.prow{display:flex;align-items:center;gap:14px;padding:13px 0;
+border-top:1px solid var(--line)}
+.prow:first-of-type{border-top:none}
+.pmedal{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+justify-content:center;font-size:13.5px;font-weight:750;font-family:var(--mono);
+background:var(--soft2);color:var(--dim)}
+.prow.p1 .pmedal{background:#fdf3d8;color:var(--gold)}
+.prow.p2 .pmedal{background:#f1f1f3;color:var(--silver)}
+.prow.p3 .pmedal{background:#f9efe6;color:var(--bronze)}
+[data-theme="dark"] .prow.p1 .pmedal{background:#2b2413;color:#e8c26a}
+[data-theme="dark"] .prow.p2 .pmedal{background:#26262a;color:#b9b9c0}
+[data-theme="dark"] .prow.p3 .pmedal{background:#2a2018;color:#d09a63}
+.pbody{flex:1;min-width:0}
+.pname{font-weight:660;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.pmeta{color:var(--dim);font-size:12.5px;margin-top:3px;font-family:var(--mono)}
+.pval{flex:none;text-align:right;font-family:var(--mono);font-weight:700;font-size:17px;
+letter-spacing:-.4px}
+.pval small{display:block;font-size:11px;font-weight:500;color:var(--dim2);
+letter-spacing:0;margin-top:2px}
+@media(max-width:820px){.podiums{grid-template-columns:1fr;gap:14px}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-padding:16px 18px 18px;box-shadow:var(--shadow);display:flex;flex-direction:column;
-min-height:118px}
+padding:18px 20px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;
+min-height:124px}
 .card .k{font-size:12px;color:var(--dim);font-weight:650;letter-spacing:.02em;
 text-transform:uppercase}
 .card .v{font-size:27px;font-weight:750;margin-top:auto;letter-spacing:-.7px;line-height:1.25}
@@ -221,11 +257,11 @@ overflow:hidden;vertical-align:middle;margin-right:8px}
 .cov-lo{color:var(--warn)}
 
 /* ---------- methodology ---------- */
-h2{font-size:20px;margin:52px 0 6px;font-weight:700;letter-spacing:-.3px;
+h2{font-size:23px;margin:72px 0 8px;font-weight:720;letter-spacing:-.5px;
 display:flex;align-items:center;gap:10px}
-h2::before{content:"";width:4px;height:19px;background:var(--accent);border-radius:2px;flex:none}
+h2::before{content:"";width:3px;height:20px;background:var(--accent);border-radius:2px;flex:none}
 h3{font-size:15px;margin:0 0 4px;font-weight:650}
-.lede{color:var(--dim);font-size:14px;margin:0 0 16px;max-width:820px}
+.lede{color:var(--dim);font-size:14.5px;line-height:1.7;margin:0 0 18px;max-width:760px}
 .wt{font-family:var(--mono);font-size:12.5px}
 .wt em{font-style:normal;color:var(--dim2)}
 .wt b{font-weight:650;color:var(--fg)}
@@ -238,8 +274,8 @@ footer .sep{color:var(--line2)}
 @media(prefers-reduced-motion:reduce){
 *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
 transition-duration:.01ms!important;scroll-behavior:auto!important}
-.panel.on .cards,.panel.on .plot,.panel.on .tw,.panel.on .desc,
-.panel.on .col .bx{animation:none}
+.panel.on .cards,.panel.on .plot,.panel.on .tw,.panel.on .note,
+.panel.on .desc,.panel.on .col .bx{animation:none}
 .plot:hover .col .bx{opacity:1}
 .col:hover{transform:none}
 }
@@ -488,6 +524,16 @@ def _chart(models: list[dict], value_key: str, top: int = 24) -> str:
     return f'<div class="plot">{"".join(bars)}</div><div class="xlab">{"".join(labs)}</div>'
 
 
+def _median(values: list[float]) -> float:
+    """Median of a non-empty list."""
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2
+
+
 def _eligible(model: dict, preset: Preset) -> bool:
     """Whether a model has enough data to be ranked under this preset.
 
@@ -585,6 +631,78 @@ def _card(label_key: str, value: str, note_html: str, accent: bool = False) -> s
     )
 
 
+def _podium_rows(rows: list[dict], preset: Preset, mode: str) -> str:
+    """Render up to three ranked rows for one podium column.
+
+    ``mode`` is "ability" (show the score) or "value" (show points per dollar).
+    The headline figure differs, but the layout is shared so the two columns
+    read as a pair rather than two unrelated widgets.
+    """
+    if not rows:
+        return '<div class="prow"><div class="pbody"><div class="pname">' \
+               '<span class="mdash">&mdash;</span></div></div></div>'
+    out = []
+    for i, m in enumerate(rows[:3], 1):
+        if mode == "value":
+            num = f'{m["efficiency"][preset.key]:.0f}'
+            unit = f'<small data-i18n="podium.per_dollar">/$</small>'
+        else:
+            num = f'{m["scores"][preset.key]:.1f}'
+            price = m["pricing"].get("blended")
+            unit = f'<small>{fmt_price(price)}/1M</small>' if price else \
+                   '<small data-i18n="card.noprice">no published price</small>'
+        badges = ""
+        if m.get("available_locally"):
+            badges = '<span class="pill local" data-i18n="row.local">local</span>'
+        out.append(
+            f'<div class="prow p{i}">'
+            f'<div class="pmedal">{i}</div>'
+            f'<div class="pbody">'
+            f'<div class="pname">{esc(m["name"])}{badges}</div>'
+            f'<div class="pmeta">{esc(m["family"])} &middot; '
+            f'cov {m["coverage"][preset.key]:.2f}</div>'
+            f"</div>"
+            f'<div class="pval">{num}{unit}</div>'
+            "</div>"
+        )
+    return "".join(out)
+
+
+def _podiums(models: list[dict], presets: dict[str, Preset]) -> str:
+    """The two headline rankings: strongest and best value.
+
+    Answers the two questions a reader actually arrives with, before the
+    full tables. Falls back to the capability view if no value view exists.
+    """
+    ability = presets.get("capability") or next(iter(presets.values()))
+    value = next((p for p in presets.values() if p.rank_by == "efficiency"), None)
+
+    def ranked_for(preset: Preset) -> list[dict]:
+        gated, _, _ = _frontier_gate(models, preset)
+        rows = [m for m in gated if _eligible(m, preset)]
+        key = (lambda m: -(m["efficiency"].get(preset.key) or 0)) \
+            if preset.rank_by == "efficiency" else \
+            (lambda m: -(m["scores"].get(preset.key) or 0))
+        return sorted(rows, key=key)
+
+    ab_rows = ranked_for(ability)
+    cols = (
+        f'<div class="podium">'
+        f'<h3 data-i18n="podium.ability">Top 3 · Ability</h3>'
+        f'<p class="sub" data-i18n="podium.ability.sub"></p>'
+        f'{_podium_rows(ab_rows, ability, "ability")}</div>'
+    )
+    if value is not None:
+        va_rows = ranked_for(value)
+        cols += (
+            f'<div class="podium">'
+            f'<h3 data-i18n="podium.value">Top 3 · Value</h3>'
+            f'<p class="sub" data-i18n="podium.value.sub"></p>'
+            f'{_podium_rows(va_rows, value, "value")}</div>'
+        )
+    return f'<div class="podiums">{cols}</div>'
+
+
 def _panel(models: list[dict], preset: Preset, first: bool,
            limit: int | None = None, value_floor: float = 0.0) -> str:
     # Frontier gate first: "best value" should mean best value among models
@@ -603,6 +721,7 @@ def _panel(models: list[dict], preset: Preset, first: bool,
     ]
 
     best = ranked[0] if ranked else None
+    priced_count = sum(1 for m in ranked if m["pricing"].get("blended"))
 
     # The value card must not contradict the value board. Ranking efficiency
     # over *this* view's whole set would surface a cheap 4B model here (the
@@ -628,6 +747,8 @@ def _panel(models: list[dict], preset: Preset, first: bool,
         row["_chart"] = v
         chart_rows.append(row)
 
+    # The podium above already names the leaders, so these cards carry the
+    # counts and the ranking caveats instead of repeating the winners.
     cards = [
         (
             "card.ranked",
@@ -637,20 +758,16 @@ def _panel(models: list[dict], preset: Preset, first: bool,
             True,
         ),
         (
-            "card.best",
-            esc(best["name"]) if best else "&mdash;",
-            (f'<span data-tpl="card.best.note" data-v-score="{best["scores"][preset.key]:.1f}">'
-             f'{best["scores"][preset.key]:.1f} pts</span>') if best
-            else '<span data-i18n="card.none">no data</span>',
+            "card.median",
+            (f'{_median([m["scores"][preset.key] for m in ranked]):.1f}'
+             if ranked else "&mdash;"),
+            '<span data-i18n="card.median.note">median score in this view</span>',
             False,
         ),
         (
-            "card.value",
-            esc(best_value["name"]) if best_value else "&mdash;",
-            (f'<span data-tpl="card.value.note" '
-             f'data-v-eff="{best_value["efficiency"][preset.key]:.0f}">'
-             f'{best_value["efficiency"][preset.key]:.0f} pts/$</span>') if best_value
-            else '<span data-i18n="card.noprice">no published price</span>',
+            "card.priced",
+            f'{priced_count}',
+            '<span data-i18n="card.priced.note">models with a published price</span>',
             False,
         ),
     ]
@@ -717,6 +834,8 @@ def render(
     panels = "".join(_panel(models, presets[k], first=(i == 0), limit=limit,
                             value_floor=value_floor)
                      for i, k in enumerate(keys))
+
+    podiums = _podiums(models, presets)
 
     weight_rows = "".join(
         f"<tr><td><b>{esc(p.label)}</b><br><em class='wt'>{esc(k)}</em></td>"
@@ -797,6 +916,7 @@ def render(
   </div>
 
   <div class="tabs" role="tablist" aria-label="{esc(s['tab.aria'])}">{tabs}</div>
+  {podiums}
   {panels}
 
   <h2 data-i18n="method.title">Weighting</h2>

@@ -41,6 +41,10 @@ STRINGS: dict[str, dict[str, str]] = {
         # Summary cards
         "card.ranked": "Models ranked",
         "card.ranked.note": "coverage ≥ {pct}",
+        "card.median": "Median score",
+        "card.median.note": "median score in this view",
+        "card.priced": "Priced models",
+        "card.priced.note": "models with a published price",
         "card.best": "Best score",
         "card.best.note": "{score} pts",
         "card.value": "Best value",
@@ -126,6 +130,12 @@ STRINGS: dict[str, dict[str, str]] = {
             "Weights are relative and renormalised per model, so a missing "
             "benchmark never counts as a zero score."
         ),
+        "podium.ability": "Top 3 · Ability",
+        "podium.value": "Top 3 · Value",
+        "podium.ability.sub": "Highest weighted score. Price ignored.",
+        "podium.value.sub": "Best score per dollar, among models within reach of the frontier.",
+        "podium.per_dollar": "pts/$",
+        "podium.more": "See all {n} ranked models",
         "meta.source_code": "Source",
         "meta.selection": (
             "Selected from {aa} models: latest generation per product line, "
@@ -159,6 +169,10 @@ STRINGS: dict[str, dict[str, str]] = {
 
         "card.ranked": "入榜模型",
         "card.ranked.note": "覆盖率 ≥ {pct}",
+        "card.median": "中位得分",
+        "card.median.note": "该视图下的得分中位数",
+        "card.priced": "有定价模型",
+        "card.priced.note": "公布了价格的模型数",
         "card.best": "最高分",
         "card.best.note": "{score} 分",
         "card.value": "最佳性价比",
@@ -233,6 +247,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "bench.terminal": "真实 shell 中的智能体执行——多步命令行任务。",
         "bench.coverage.note": "榜单 {total} 个模型中有 {n} 个报告了该基准。",
         "method.note": "权重是相对的，并按模型逐一重归一化，因此缺失的基准不会被当作 0 分。",
+        "podium.ability": "前三名 · 最高能力",
+        "podium.value": "前三名 · 最佳性价比",
+        "podium.ability.sub": "加权得分最高，不考虑价格。",
+        "podium.value.sub": "在接近前沿的模型中，每美元能力最强。",
+        "podium.per_dollar": "分/美元",
+        "podium.more": "查看全部 {n} 个入榜模型",
         "meta.source_code": "源码",
         "meta.selection": (
             "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"
