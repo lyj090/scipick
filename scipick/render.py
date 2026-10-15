@@ -1762,7 +1762,7 @@ def _panel(models: list[dict], preset: Preset, first: bool,
         f"{_podium(models, preset, value_floor=value_floor)}"
         f'<div class="cards">{cards_html}</div>'
         f"{floor_note}"
-        f'<h2 data-i18n="bars.title">Absolute ability</h2>'
+        f'<h2 data-i18n="bars.title">Top by score</h2>'
         f'<p class="lede" data-i18n="bars.desc"></p>'
         f"{_bars(models, preset)}"
         f'<h2 data-i18n="frontier.title">Score vs price</h2>'

@@ -153,12 +153,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "frontier.nopriced": "No model in this view has a published price.",
 
         # Absolute-ability bar chart
-        "bars.title": "Absolute ability",
+        "bars.title": "Top by score",
         "bars.desc": (
-            "The strongest models in this view by weighted score, price ignored. "
-            "The y-axis starts near the top of the field rather than at zero, "
-            "because the gap at the top of a benchmark table is a few points "
-            "wide — a zero-based axis would draw every bar the same height."
+            "Price is ignored here, so this is the one place a strong model with "
+            "no published price is visible. The axis starts near the top of the "
+            "field rather than at zero, because the gap between the leaders is a "
+            "few points wide — a zero-based axis would draw every bar the same "
+            "height."
         ),
         "bars.axis": "Weighted score",
         "bars.truncated": (
@@ -313,10 +314,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "frontier.legend.top": "前三名",
         "frontier.nopriced": "本视图没有公布价格的模型。",
 
-        "bars.title": "绝对能力",
+        "bars.title": "按得分排名",
         "bars.desc": (
-            "本视图下按加权得分排出的最强模型，不考虑价格。纵轴从接近最高分处开始、"
-            "而非从 0 开始：榜单顶部的差距往往只有几分，从 0 起画会让所有柱子看起来一样高。"
+            "此处不考虑价格，因此这是唯一能看到「很强但没有公布价格」的模型的地方。"
+            "纵轴从接近最高分处开始、而非从 0 开始：领先者之间往往只差几分，"
+            "从 0 起画会让所有柱子看起来一样高。"
         ),
         "bars.axis": "加权得分",
         "bars.truncated": "得分自 {floor} 起显示，纵轴不从 0 开始。",
