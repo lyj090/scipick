@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipick"
+version = "0.1.0"
+description = "A weighted LLM leaderboard for research and engineering work"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["llm", "leaderboard", "benchmark", "artificial-analysis"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+dev = ["pytest>=7.0", "PyYAML>=6.0"]
+
+[project.scripts]
+scipick = "scipick.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/lyj090/scipick"
+Leaderboard = "https://lyj090.github.io/scipick/"
+
+[tool.setuptools]
+packages = ["scipick"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

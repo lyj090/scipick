@@ -1,0 +1,12 @@
+# Optional. Maps route prefixes on your gateway to display names.
+#
+# Only needed if you set SCIPICK_LOCAL_BASE and want the "local" badge to say
+# *where* a model is reachable from. Without this file, scipick still marks
+# locally-available models, it just shows the raw route prefix.
+#
+# Copy to `sources.yaml` and run:
+#   python -m scipick --sources-file config/sources.yaml
+
+sources: {}
+#  my-gateway: "My Gateway"
+#  internal:   "Internal"

@@ -1,0 +1,77 @@
+# scipick configuration. Copy to `presets.yaml` and adjust, then run:
+#   python -m scipick --presets-file config/presets.yaml
+#
+# Every preset is a view over the same metric set. `rank_by` is either:
+#   score       - rank by weighted ability (0-100)
+#   efficiency  - rank by ability per blended dollar
+#
+# Available metric keys (from the Artificial Analysis data API):
+#   scicode                                     SciCode (0-1)
+#   hle                                         Humanity's Last Exam (0-1)
+#   artificial_analysis_intelligence_index      AA Intelligence Index (0-100)
+#   lcr                                         Long-context reasoning (0-1)
+#   terminalbench_v4_0                          Terminal-Bench 4.0 (0-1)
+#
+# Weights are renormalised, so they need not sum to 1. A metric missing for a
+# given model is skipped and the rest renormalised; the reported coverage tells
+# you how much of the weighting landed.
+#
+# `min_coverage` is a floor on that coverage: models below it are listed as
+# insufficient data instead of being ranked. This matters when a metric is rare.
+# SciCode and Terminal-Bench cover about a third of the catalogue, so a low floor
+# on the coding preset would rank models on long-context reasoning alone. Raise
+# it for a stricter ranking, lower it to include newer models with partial data.
+
+presets:
+  # Absolute ability, price ignored.
+  capability:
+    label: Capability
+    description: Absolute ability, price ignored.
+    rank_by: score
+    min_coverage: 0.5
+    weights:
+      scicode: 0.40
+      hle: 0.20
+      artificial_analysis_intelligence_index: 0.20
+      lcr: 0.10
+      terminalbench_v4_0: 0.10
+
+  # Ability per blended dollar.
+  value:
+    label: Value
+    description: Ability per blended dollar (3:1 input:output).
+    rank_by: efficiency
+    min_coverage: 0.5
+    weights:
+      scicode: 0.40
+      hle: 0.20
+      artificial_analysis_intelligence_index: 0.20
+      lcr: 0.10
+      terminalbench_v4_0: 0.10
+
+  # Code generation and agentic terminal work.
+  #
+  # min_coverage is high on purpose. SciCode and Terminal-Bench cover roughly a
+  # third of the catalogue, so a lower floor would let a model be ranked here on
+  # long-context reasoning alone -- a coding leaderboard sorted by the wrong
+  # benchmark.
+  coding:
+    label: Coding
+    description: Weighted toward code generation and terminal execution.
+    rank_by: score
+    min_coverage: 0.85
+    weights:
+      scicode: 0.60
+      terminalbench_v4_0: 0.25
+      lcr: 0.15
+
+  # Long-document work: papers, specs, codebases.
+  longcontext:
+    label: Long context
+    description: For whole-repository or long-document reasoning.
+    rank_by: score
+    min_coverage: 0.5
+    weights:
+      lcr: 0.50
+      scicode: 0.25
+      artificial_analysis_intelligence_index: 0.25

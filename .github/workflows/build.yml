@@ -1,0 +1,80 @@
+name: Build and deploy leaderboard
+
+# Rebuilds the leaderboard on a schedule and publishes it to GitHub Pages.
+# Benchmark data changes when vendors release models, so a daily refresh keeps
+# the site current without any manual step.
+
+on:
+  schedule:
+    # 06:00 UTC daily. Artificial Analysis refreshes on their own cadence, so
+    # more frequent builds would only re-render identical data.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scipick/**"
+      - "tests/**"
+      - "config/**"
+      - ".github/workflows/build.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build leaderboard
+        env:
+          # Set this in Settings -> Secrets and variables -> Actions.
+          # Never commit the key.
+          AA_API_KEY: ${{ secrets.AA_API_KEY }}
+        run: |
+          python -m scipick \
+            --output docs/index.html \
+            --presets-file config/presets.yaml \
+            --json docs/data.json
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
