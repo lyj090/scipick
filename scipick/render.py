@@ -75,6 +75,9 @@ CSS = """
 --warn:#a15c07;--warn-soft:#fdf5e9;
 --gold:#b08324;--silver:#8a8a90;--bronze:#a2703f;
 --bar1:#2563eb;--bar2:#7aa7f5;
+/* Pinned-model highlight. Deliberately not the accent blue and not any vendor
+   swatch, so "pinned" can never be confused with "selected tab" or "Anthropic". */
+--pin:#7c3aed;--pin-dim:#a78bfa;--pin-soft:#f5f2ff;
 --shadow:0 1px 2px rgba(16,18,20,.03);
 --shadow-lift:0 2px 4px rgba(16,18,20,.04),0 12px 28px rgba(16,18,20,.07);
 --radius:16px;
@@ -92,6 +95,7 @@ CSS = """
 --good:#4ade80;--good-soft:#14261c;
 --warn:#fbbf24;--warn-soft:#2a2113;
 --bar1:#3b82f6;--bar2:#60a5fa;
+--pin:#a78bfa;--pin-dim:#7c3aed;--pin-soft:#221c33;
 --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
 }
 *{box-sizing:border-box}
@@ -308,6 +312,92 @@ border-radius:0 10px 10px 0;margin:18px 0;font-size:13.5px;color:var(--fg2)}
 .note.info{background:var(--accent-soft);border-left-color:var(--accent)}
 .note b{color:var(--fg)}
 
+/* ---------- absolute-ability bars ---------- */
+/* .bars wraps the plot and its label row so they pan together on narrow
+   screens; the two rows must stay column-aligned, so they cannot scroll
+   independently. */
+.bars{margin-top:6px}
+/* The plot is a flex row of equal columns, so a bar's height is a percentage of
+   the track. Only height animates; the geometry never reflows. */
+.plot{display:flex;align-items:flex-end;gap:5px;height:230px;margin-top:18px;
+border-bottom:1px solid var(--line2);position:relative}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+align-items:center;height:100%;position:relative;min-width:0;cursor:pointer;
+border-radius:4px 4px 0 0;transition:transform .14s ease}
+.col .bv{font-size:10.5px;font-family:var(--mono);color:var(--dim);margin-bottom:4px;
+font-variant-numeric:tabular-nums;white-space:nowrap}
+.col .bx{width:100%;border-radius:4px 4px 0 0;
+background:linear-gradient(180deg,var(--bar2),var(--bar1));
+transition:opacity .15s,filter .15s}
+.col:hover{transform:translateY(-2px)}
+.col:hover .bx{filter:saturate(1.25)}
+.col:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* The leader keeps the accent so the eye lands on it first. */
+.col:first-child .bx{background:linear-gradient(180deg,var(--accent),var(--bar1))}
+/* A pinned column is marked on the bar and the value label, not by tinting the
+   whole column, so the height still reads as height. */
+.col.pinned .bx{outline:2px solid var(--pin);outline-offset:-2px;
+background:linear-gradient(180deg,var(--pin),var(--pin-dim))}
+.col.pinned .bv{color:var(--pin);font-weight:700}
+.xlab{display:flex;gap:5px;margin-top:8px}
+.xlab .c{flex:1;min-width:0;cursor:pointer}
+.xlab span{display:block;font-size:10.5px;color:var(--dim);
+writing-mode:vertical-rl;transform:rotate(180deg);height:104px;overflow:hidden;
+margin:0 auto;transition:color .15s}
+.xlab .c:hover span,.xlab .c.pinned span{color:var(--pin);font-weight:650}
+
+/* ---------- compare tray ---------- */
+.picker{background:var(--panel);border:1px solid var(--line);
+border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px 16px;
+margin:20px 0 4px}
+.pk-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pk-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim)}
+.pk-count{font-family:var(--mono);font-size:11.5px;color:var(--pin)}
+.pk-add{display:flex;align-items:center}
+.pk-add input{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;
+border:1px solid var(--line);background:var(--bg);color:var(--fg);width:190px}
+.pk-add input:focus{outline:none;border-color:var(--accent);width:230px}
+.pk-hint{color:var(--dim2);font-size:12.5px;margin:7px 0 0}
+.pk-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pk-chips:empty{display:none}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--pin-soft);
+border:1px solid color-mix(in srgb,var(--pin) 30%,var(--line));
+color:var(--fg);border-radius:99px;padding:3px 6px 3px 11px;font-size:12.5px;
+max-width:100%}
+.chip .cn{overflow-wrap:anywhere}
+.chip .cx{appearance:none;border:none;background:transparent;color:var(--dim);
+cursor:pointer;font:inherit;font-size:14px;line-height:1;padding:2px 4px;
+border-radius:50%}
+.chip .cx:hover{background:color-mix(in srgb,var(--pin) 22%,transparent);color:var(--fg)}
+.chip .cv{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+
+/* Pinned rows in the ranking table. */
+tr.pinned{background:var(--pin-soft)}
+tr.pinned:hover{background:var(--pin-soft)}
+tr.pinned .nm{color:var(--pin);font-weight:700}
+/* A ring, not a fill, so a pinned dot keeps its vendor colour — the fill is an
+   inline style and would beat any stylesheet rule anyway.
+   
+   Specificity is the trap here: the vendor rule is
+   `.fdot[data-vendor]:not([data-vendor=""])` at (0,3,0), so a plain
+   `.fdot.pinned` at (0,2,0) loses and the pin silently renders as the neutral
+   vendor ring. Every combination that can occur has to be spelled out — which
+   is why this block enumerates them rather than relying on one selector. */
+.fdot.pinned,
+.fdot[data-vendor]:not([data-vendor=""]).pinned,
+.fdot.top.pinned,
+.fdot[data-vendor]:not([data-vendor=""]).top.pinned,
+.fdot[data-vendor]:not([data-vendor=""]).front.pinned{
+stroke:var(--pin);stroke-width:2.4;opacity:1}
+/* Pinned keeps its marker when hovered or focused, so the ring does not appear
+   to come and go as the pointer moves across the chart. */
+.fdot.pinned:hover,
+.fdot[data-vendor]:not([data-vendor=""]).pinned:hover{
+stroke:var(--pin);stroke-width:2.4}
+tr{cursor:default}
+tbody tr{position:relative}
+
 /* ---------- tables ---------- */
 .tw{margin-top:6px}
 /* Methodology and benchmark tables carry long unbreakable metric names, so
@@ -381,6 +471,11 @@ transition-duration:.01ms!important;scroll-behavior:auto!important}
    on phones, but a table that overflows the viewport is worse. */
 @media(max-width:860px){
 .panel .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* Below this the twenty columns fall under ~24px each, which is both hard to
+   read and under the minimum touch target. Give each a floor and let the chart
+   pan instead of shrinking further. */
+.bars{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.plot,.xlab{min-width:560px}
 }
 @media(max-width:720px){
 .wrap{padding:0 16px 72px}
@@ -487,6 +582,10 @@ JS = r"""
     try { localStorage.setItem('scipick.lang', lang); } catch(e){}
     current.lang = lang;
     updateCount();
+    // The chips and the pin count are built in JS, so they are not covered by
+    // the data-i18n sweep above and have to be rebuilt on a language switch.
+    // applyPins re-renders the chips itself.
+    if (typeof applyPins === 'function' && pinned) applyPins();
   }
 
   /* ---------- theme ---------- */
@@ -697,6 +796,165 @@ JS = r"""
     counter.textContent = tpl.replace('{shown}', shown).replace('{total}', rows.length);
   }
 
+  /* ---------- model selection ---------- */
+  // Pinning is keyed on the model's canonical slug, not its display name: the
+  // same model appears in four panels with four different scores, and the name
+  // carries a serving variant that varies by route. The slug is stable across
+  // every view, so one pin lights up the model everywhere.
+  //
+  // State lives in one array, and every surface (bars, scatter, table, chips) is
+  // re-derived from it. The alternative — toggling classes on the element that
+  // was clicked — desynchronises the moment a model is pinned from a different
+  // panel than the one on screen.
+  var MAX_PIN = 5;
+  var pinned = [];
+  var nameOf = {};   // canonical -> display name, for the chips
+
+  // Build the canonical -> display-name map from every surface. The bars are
+  // the important source: a strong unpriced model appears there and may be in
+  // no table at all on an efficiency view, so without this its chip would fall
+  // back to the raw slug.
+  document.querySelectorAll('[data-model]').forEach(function(el){
+    var key = el.getAttribute('data-model');
+    if (!key) return;
+    var nm = el.getAttribute('data-name');
+    if (!nm){
+      var inner = el.querySelector ? el.querySelector('.nm') : null;
+      nm = inner ? inner.textContent.trim() : el.getAttribute('aria-label');
+    }
+    if (nm && !nameOf[key]) nameOf[key] = nm;
+  });
+  document.querySelectorAll('tbody tr[data-model] .nm').forEach(function(nm){
+    var tr = nm.closest('tr');
+    if (tr) nameOf[tr.getAttribute('data-model')] = nm.textContent.trim();
+  });
+
+  // Build the add-by-name suggestions from the rows already in the document.
+  (function fillDatalist(){
+    var list = document.getElementById('pklist');
+    if (!list) return;
+    var seen = {}, names = [];
+    Object.keys(nameOf).forEach(function(k){
+      if (!seen[k]){ seen[k] = 1; names.push(nameOf[k]); }
+    });
+    names.sort(function(a, b){ return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+    var frag = document.createDocumentFragment();
+    names.forEach(function(n){
+      var o = document.createElement('option');
+      o.value = n;
+      frag.appendChild(o);
+    });
+    list.appendChild(frag);
+  })();
+
+  function pinKey(){ return 'scipick.pinned'; }
+  function savePins(){
+    try { localStorage.setItem(pinKey(), JSON.stringify(pinned)); } catch(e){}
+  }
+  function loadPins(){
+    try {
+      var raw = localStorage.getItem(pinKey());
+      var arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) pinned = arr.slice(0, MAX_PIN).map(String);
+    } catch(e){ pinned = []; }
+  }
+
+  function isPinned(key){ return pinned.indexOf(key) >= 0; }
+
+  function togglePin(key){
+    if (!key) return;
+    var i = pinned.indexOf(key);
+    if (i >= 0) pinned.splice(i, 1);
+    else {
+      if (pinned.length >= MAX_PIN) pinned.shift();   // drop the oldest
+      pinned.push(key);
+    }
+    savePins();
+    applyPins();
+  }
+
+  // Re-derive every surface from `pinned`. Cheap: a few hundred elements, and
+  // only attribute/class writes, so no layout thrash.
+  function applyPins(){
+    document.querySelectorAll('[data-model]').forEach(function(el){
+      var on = isPinned(el.getAttribute('data-model'));
+      el.classList.toggle('pinned', on);
+      if (el.getAttribute('role') === 'button'){
+        el.setAttribute('aria-pressed', String(on));
+      }
+    });
+    document.querySelectorAll('.xlab .c').forEach(function(c, i){
+      var bar = c.parentNode.previousElementSibling;
+      var col = bar && bar.children ? bar.children[i] : null;
+      c.classList.toggle('pinned',
+        !!(col && isPinned(col.getAttribute('data-model'))));
+    });
+    renderChips();
+    var n = document.getElementById('pkcount');
+    if (n) n.textContent = pinned.length
+      ? t(current.lang || DEFAULT_LANG, 'pick.count').replace('{n}', pinned.length)
+      : '';
+  }
+
+  function renderChips(){
+    var box = document.getElementById('pkchips');
+    if (!box) return;
+    if (!pinned.length){
+      box.innerHTML = '<span class="pk-empty" data-i18n="pick.empty">' +
+        t(current.lang || DEFAULT_LANG, 'pick.empty') + '</span>';
+      return;
+    }
+    box.innerHTML = pinned.map(function(key){
+      var label = nameOf[key] || key;
+      var rm = t(current.lang || DEFAULT_LANG, 'pick.remove');
+      return '<span class="chip"><span class="cn">' + esc3(label) + '</span>' +
+        '<button type="button" class="cx" data-unpin="' + esc3(key) + '" ' +
+        'title="' + esc3(rm) + '" aria-label="' + esc3(rm) + '">✕</button></span>';
+    }).join('');
+  }
+  function esc3(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;');
+  }
+
+  document.addEventListener('click', function(e){
+    var un = e.target.closest ? e.target.closest('[data-unpin]') : null;
+    if (un){ togglePin(un.getAttribute('data-unpin')); return; }
+    var el = e.target.closest ? e.target.closest('[data-model]') : null;
+    if (!el) return;
+    // Text selection inside a row should not toggle a pin.
+    if (window.getSelection && String(window.getSelection())) return;
+    togglePin(el.getAttribute('data-model'));
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target.closest ? e.target.closest('[data-model][role="button"]') : null;
+    if (!el) return;
+    e.preventDefault();
+    togglePin(el.getAttribute('data-model'));
+  });
+
+  var clr = document.getElementById('pkclear');
+  if (clr) clr.addEventListener('click', function(){
+    pinned = []; savePins(); applyPins();
+  });
+  // Add-by-name. Matched case-insensitively on the display name, and on the
+  // slug, so "claude-opus-5.5" works as well as "Claude Opus 5.5 (Max...)".
+  var addBox = document.getElementById('pkinput');
+  if (addBox) addBox.addEventListener('change', function(){
+    var q = addBox.value.trim().toLowerCase();
+    if (!q) return;
+    var hit = null;
+    document.querySelectorAll('[data-model]').forEach(function(el){
+      if (hit) return;
+      var key = el.getAttribute('data-model');
+      var nm = (nameOf[key] || '').toLowerCase();
+      if (key.toLowerCase() === q || nm === q) hit = key;
+      else if (!hit && (nm.indexOf(q) >= 0 || key.toLowerCase().indexOf(q) >= 0)) hit = key;
+    });
+    if (hit){ if (!isPinned(hit)) togglePin(hit); addBox.value = ''; }
+  });
+
   /* ---------- boot ---------- */
   var current = { lang: null, theme: 'auto', tab: null };
   var initLang = null, initTheme = null;
@@ -706,7 +964,9 @@ JS = r"""
   var known = tabs.map(function(x){ return x.dataset.key; });
   show(known.indexOf(hash) >= 0 ? hash : (tabs[0] && tabs[0].dataset.key));
   applyTheme(initTheme || 'auto');
+  loadPins();
   applyLang(initLang || DEFAULT_LANG);
+  applyPins();
 
   var lb = document.getElementById('langbtn');
   if (lb) lb.addEventListener('click', function(){
@@ -905,9 +1165,14 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
         # frontier and top-three tiers are conveyed by radius.
         style = f' style="fill:{colour}"' if colour else ""
         cls = "fdot top" if is_top else ("fdot front" if is_f else "fdot")
+        # No aria-label here: the dots are tabindex="-1", so assistive tech does
+        # not reach them and the label would be dead weight on 607 elements. The
+        # <title> still gives a pointer tooltip, and the table plus the
+        # add-by-name box are the accessible routes to the same selection.
         dots.append(
             f'<circle cx="{x(price):.1f}" cy="{y(score):.1f}" r="{r}" class="{cls}"'
-            f'{style} data-vendor="{esc(vendor)}">'
+            f'{style} data-vendor="{esc(vendor)}" '
+            f'data-model="{esc(m["canonical"])}">'
             f'<title>{esc(m["name"])} — {score:.1f} @ {fmt_price(price)}/1M</title>'
             f"</circle>"
         )
@@ -1011,6 +1276,87 @@ def _short_name(name: str, limit: int = 22) -> str:
     return base if len(base) <= limit else base[: limit - 1] + "…"
 
 
+def _bars(models: list[dict], preset: Preset, top: int = 20) -> str:
+    """Absolute-ability bar chart for the leading models in this view.
+
+    Price is ignored here on purpose: this is the "who is simply best" panel,
+    and it is the one question the frontier scatter cannot answer, because the
+    scatter only plots models with a published price. Models with strong scores
+    and no price appear here and nowhere else.
+
+    Two things are deliberately *not* inherited from the view:
+
+    * ranking criterion — this chart is always sorted by weighted score. Using
+      the view's own ``rank_by`` would put the value view's efficiency leaders
+      here, and then draw their scores as bar heights: the bars would come out
+      in a visibly wrong order (44.8, 51.1, 46.8) under a heading that says
+      "absolute ability".
+    * the price requirement — ``_eligible`` also demands an efficiency score on
+      an efficiency view, which would drop every unpriced model. Those are
+      precisely the strong models this chart is the only place to see.
+
+    The coverage floor *is* kept. It is not about price or value; it says a
+    model scored on one of five benchmarks is not comparable, and that applies
+    to an ability chart just as much as to a value one.
+
+    The y-axis deliberately does not start at zero, and says so on the page.
+    The top of a benchmark table is usually a few points wide — Claude Opus at
+    65.0 down to the tenth entry around 57 — so a zero-based axis would draw
+    twenty near-identical bars and hide exactly the difference the chart exists
+    to show. Truncating an axis is a real distortion, which is why the floor
+    value is printed rather than left for the reader to guess.
+    """
+    rows = sorted(
+        (m for m in models
+         if m["scores"].get(preset.key) is not None
+         and m["coverage"].get(preset.key, 0.0) >= preset.min_coverage),
+        key=lambda m: -(m["scores"].get(preset.key) or 0),
+    )[:top]
+    if not rows:
+        return (f'<p class="lede" data-i18n="bars.none">'
+                f'{esc(strings_for(DEFAULT_LANG)["bars.none"])}</p>')
+
+    vals = [m["scores"][preset.key] for m in rows]
+    vmax, vmin = max(vals), min(vals)
+    # Take the top of the axis to the next round number above the leader, then
+    # start the axis a little below the weakest bar shown.
+    span = vmax - vmin
+    floor = max(0.0, vmin - max(span * 0.25, 1.0))
+    rng = (vmax - floor) or 1.0
+
+    cols = []
+    for m in rows:
+        v = m["scores"][preset.key]
+        h = max(2.0, min(100.0, (v - floor) / rng * 100.0))
+        short = _short_name(m["name"], 30)
+        cols.append(
+            f'<div class="col" data-model="{esc(m["canonical"])}" '
+            f'data-name="{esc(m["name"])}" '
+            f'title="{esc(m["name"])} — {v:.1f}" role="button" tabindex="0" '
+            f'aria-pressed="false" aria-label="{esc(m["name"])}">'
+            f'<span class="bv">{v:.1f}</span>'
+            f'<div class="bx" style="height:{h:.1f}%"></div></div>'
+        )
+    labels = "".join(
+        f'<div class="c" title="{esc(m["name"])}">'
+        f'<span>{esc(_short_name(m["name"], 30))}</span></div>'
+        for m in rows
+    )
+    # The plot and its labels are wrapped in one scrolling box. They are two
+    # separate flex rows that must stay column-aligned, so if only the plot
+    # scrolled the labels would detach from their bars. On a phone this is the
+    # difference between 13px-wide bars (unreadable and below the minimum touch
+    # target) and a chart you can actually read by panning.
+    return (
+        f'<div class="bars">'
+        f'<div class="plot" data-plot="{esc(preset.key)}">{ "".join(cols) }</div>'
+        f'<div class="xlab">{labels}</div>'
+        f"</div>"
+        f'<p class="lede"><span data-tpl="bars.truncated" '
+        f'data-v-floor="{floor:.1f}">Scores shown from {floor:.1f} upward.</span></p>'
+    )
+
+
 def _median(values: list[float]) -> float:
     """Median of a non-empty list."""
     if not values:
@@ -1067,6 +1413,7 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float,
     deep_attr = ' class="deep"' if deep else ""
     return (
         f'<tr data-name="{hay}"{deep_attr}'
+        f' data-model="{esc(m["canonical"])}"'
         f' data-k-model="{esc(m["name"].lower())}"'
         f' data-k-family="{esc(m["family"].lower())}"'
         f' data-k-score="{sk(score)}"'
@@ -1415,6 +1762,9 @@ def _panel(models: list[dict], preset: Preset, first: bool,
         f"{_podium(models, preset, value_floor=value_floor)}"
         f'<div class="cards">{cards_html}</div>'
         f"{floor_note}"
+        f'<h2 data-i18n="bars.title">Absolute ability</h2>'
+        f'<p class="lede" data-i18n="bars.desc"></p>'
+        f"{_bars(models, preset)}"
         f'<h2 data-i18n="frontier.title">Score vs price</h2>'
         f'<p class="lede" data-i18n="frontier.desc"></p>'
         f"{_frontier(models, preset)}"
@@ -1477,6 +1827,32 @@ def render(
     panels = "".join(_panel(models, presets[k], first=(i == 0), limit=limit,
                             value_floor=value_floor)
                      for i, k in enumerate(keys))
+
+    # The compare tray. It sits above the panels rather than inside one, because
+    # a pinned model is meant to be visible across every view — that is the
+    # whole point of pinning one.
+    #
+    # The add-by-name list is built in JS from the table rows, not server-side:
+    # every model already appears there with its display name, and shipping 389
+    # <option> elements duplicated that text for ~19 KB of the gzipped payload.
+    picker = (
+        f'<section class="picker" aria-label="{esc(s["pick.aria"])}">'
+        f'<div class="pk-head">'
+        f'<span class="pk-title" data-i18n="pick.title">Compare</span>'
+        f'<span class="pk-count" id="pkcount" role="status" aria-live="polite"></span>'
+        f'<span class="spacer"></span>'
+        f'<label class="pk-add">'
+        f'<input id="pkinput" list="pklist" type="text" autocomplete="off" '
+        f'placeholder="{esc(s["pick.add.ph"])}" data-i18n-ph="pick.add.ph">'
+        f'<datalist id="pklist"></datalist>'
+        f'</label>'
+        f'<button type="button" class="btn" id="pkclear" '
+        f'data-i18n="pick.clear">Clear</button>'
+        f"</div>"
+        f'<p class="pk-hint" data-i18n="pick.hint">{esc(s["pick.hint"])}</p>'
+        f'<div class="pk-chips" id="pkchips"></div>'
+        f"</section>"
+    )
 
     weight_rows = "".join(
         f"<tr><td><b>{esc(p.label)}</b><br><em class='wt'>{esc(k)}</em></td>"
@@ -1557,6 +1933,7 @@ def render(
   </div>
 
   <div class="tabs" role="tablist" aria-label="{esc(s['tab.aria'])}">{tabs}</div>
+  {picker}
   {panels}
 
   <h2 data-i18n="method.title">Weighting</h2>

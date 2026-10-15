@@ -38,6 +38,16 @@ what is on screen always describes the view you selected.
 then names the leader on the other axis — so "who is strongest" and "who is best
 value" are both answerable without leaving the view.
 
+**Absolute ability.** The bar chart ranks the leading models by weighted score
+with price ignored, and its y-axis starts near the top of the field rather than
+at zero — the gap between first and tenth is a few points, so a zero-based axis
+would draw twenty identical bars. That truncation is a real distortion, so the
+floor value is printed under the chart rather than left to be guessed.
+
+It is the one place a strong model with no published price is visible, because
+the scatter can only plot priced models and an efficiency board cannot rank
+them at all.
+
 **Score vs price.** The scatter plots every priced model in the view against a
 log-scaled blended price. The blue staircase is the *efficient frontier*: the
 best score available at or below each price. A model on the line is not
@@ -49,6 +59,13 @@ Dots are coloured by vendor for the vendors that actually reach the frontier or
 the top three in that view — five to nine of the thirty-three on the board.
 Colouring the rest would need a palette nobody can tell apart; leaving them grey
 is also the truthful reading, because a grey dot is not in contention.
+
+**Compare.** Click a bar, a scatter point, or a table row to pin a model. Pinned
+models are highlighted across *every* view and collected in the tray at the top,
+so the model you are considering stays lit while you move between weightings.
+Up to five at a time; the selection survives a reload. There is also an
+add-by-name box, which is the practical way to find a model among 290 when you
+already know which one you want.
 
 **Full ranking.** Sortable by any column, and collapsed to the first screen by
 default. Every row ships in the file, so search and sort cover the whole set and

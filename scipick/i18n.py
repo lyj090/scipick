@@ -151,6 +151,35 @@ STRINGS: dict[str, dict[str, str]] = {
         "frontier.legend.other": "other models",
         "frontier.legend.top": "top 3",
         "frontier.nopriced": "No model in this view has a published price.",
+
+        # Absolute-ability bar chart
+        "bars.title": "Absolute ability",
+        "bars.desc": (
+            "The strongest models in this view by weighted score, price ignored. "
+            "The y-axis starts near the top of the field rather than at zero, "
+            "because the gap at the top of a benchmark table is a few points "
+            "wide — a zero-based axis would draw every bar the same height."
+        ),
+        "bars.axis": "Weighted score",
+        "bars.truncated": (
+            "Scores are shown from {floor} upward; the axis does not start at 0."
+        ),
+        "bars.none": "No model in this view has a usable score.",
+
+        # Model selection (shared by both charts and the table)
+        "pick.title": "Compare",
+        "pick.hint": (
+            "Click a bar, a point, or a row to pin a model. Pinned models are "
+            "highlighted in every view and listed here."
+        ),
+        "pick.empty": "Nothing pinned yet.",
+        "pick.clear": "Clear",
+        "pick.remove": "Unpin",
+        "pick.count": "{n} pinned",
+        "pick.limit": "Up to {n} models at once.",
+        "pick.aria": "Pinned models",
+        "pick.add.ph": "Add a model by name…",
+        "pick.none": "This model is not in the current view.",
         "meta.source_code": "Source",
         "meta.selection": (
             "Selected from {aa} models: latest generation per product line, "
@@ -283,6 +312,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "frontier.legend.other": "其他模型",
         "frontier.legend.top": "前三名",
         "frontier.nopriced": "本视图没有公布价格的模型。",
+
+        "bars.title": "绝对能力",
+        "bars.desc": (
+            "本视图下按加权得分排出的最强模型，不考虑价格。纵轴从接近最高分处开始、"
+            "而非从 0 开始：榜单顶部的差距往往只有几分，从 0 起画会让所有柱子看起来一样高。"
+        ),
+        "bars.axis": "加权得分",
+        "bars.truncated": "得分自 {floor} 起显示，纵轴不从 0 开始。",
+        "bars.none": "本视图没有可用得分的模型。",
+
+        "pick.title": "对比",
+        "pick.hint": "点击柱子、散点或表格行即可固定一个模型；固定的模型会在所有视图中高亮，并列在此处。",
+        "pick.empty": "尚未固定任何模型。",
+        "pick.clear": "清空",
+        "pick.remove": "取消固定",
+        "pick.count": "已固定 {n} 个",
+        "pick.limit": "最多同时固定 {n} 个模型。",
+        "pick.aria": "已固定的模型",
+        "pick.add.ph": "按名称添加模型…",
+        "pick.none": "该模型不在当前视图中。",
         "meta.source_code": "源码",
         "meta.selection": (
             "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"

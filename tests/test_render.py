@@ -42,6 +42,9 @@ def model(name, capability=50.0, coding=50.0, longcontext=50.0, price=5.0,
             effs[key] = eff_of(s.value, price)
     return {
         "name": name,
+        # The pipeline always sets this (collect.py derives it from the AA
+        # name); it is the stable cross-view key used for pinning.
+        "canonical": re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-"),
         "family": name.split()[0],
         "creator": name.split()[0],
         "metrics": metrics,
@@ -378,6 +381,169 @@ class ExclusionNoteTest(unittest.TestCase):
                 text = STRINGS[lang]["panel.noprice"].lower()
                 self.assertNotIn("listed here", text)
                 self.assertIn("{n}", STRINGS[lang]["panel.noprice"])
+
+
+class AbilityBarTest(unittest.TestCase):
+    """The absolute-ability chart must measure ability, in every view."""
+
+    def bar_values(self, key):
+        body = panels(render(board(), DEFAULT_PRESETS, limit=60))[key]
+        m = re.search(r'data-plot="' + key + r'">(.*?)</div><div class="xlab">',
+                      body, re.S)
+        if not m:
+            return []
+        return [float(v) for v in
+                re.findall(r'<span class="bv">([\d.]+)</span>', m.group(1))]
+
+    def test_bars_descend_in_every_view(self):
+        """Bar heights are scores, so the order must be monotonic.
+
+        The bug this covers: on the value view the chart inherited the view's
+        efficiency ordering, so heights came out 44.8, 51.1, 46.8 — visibly
+        wrong under a heading that says "absolute ability".
+        """
+        for key in DEFAULT_PRESETS:
+            vals = self.bar_values(key)
+            with self.subTest(view=key):
+                self.assertTrue(vals, f"no bars in {key}")
+                self.assertEqual(vals, sorted(vals, reverse=True),
+                                 f"bars not sorted by score in {key}: {vals}")
+
+    def test_value_view_bars_match_the_capability_bars(self):
+        # Both views weight identically, so an ability chart that ignores the
+        # view's own ranking criterion must agree across them.
+        self.assertEqual(self.bar_values("value"), self.bar_values("capability"))
+
+    def test_unpriced_strong_model_still_appears(self):
+        """The scatter cannot show an unpriced model; this chart must.
+
+        On an efficiency view an unpriced model has no rank at all — it is
+        excluded from the table and absent from the scatter — so if this chart
+        also dropped it, the model would simply be invisible.
+        """
+        row = [model("Strong Unpriced", capability=95.0, coding=95.0,
+                     longcontext=95.0, price=0, scicode=0.95, lcr=0.95,
+                     hle=0.9, aaii=95.0, terminal=0.9)]
+        html = render(row, DEFAULT_PRESETS, limit=60)
+        body = panels(html)["value"]
+        bars = re.search(r'data-plot="value">(.*?)</div><div class="xlab">',
+                         body, re.S).group(1)
+        self.assertIn("Strong Unpriced", bars)
+        # ...and it is genuinely unranked in this view, which is the contrast
+        # that makes the bar chart worth having.
+        self.assertIn("card.ranked", body)
+        self.assertRegex(body, r'data-i18n="card\.ranked">[^<]*</div>'
+                               r'<div class="v">0</div>')
+
+    def test_low_coverage_model_is_excluded_from_bars(self):
+        """Coverage is about comparability, not price, so it still applies."""
+        good = model("Solid", capability=60.0, coding=60.0, longcontext=60.0,
+                     price=2.0, scicode=0.6, lcr=0.6, hle=0.6, aaii=60.0,
+                     terminal=0.6)
+        # A perfect score on a single metric: coverage 0.2, below every floor.
+        sparse = model("Sparse", capability=0.0, coding=0.0, longcontext=0.0,
+                       price=2.0, scicode=1.0)
+        sparse["coverage"] = {k: 0.2 for k in DEFAULT_PRESETS}
+        sparse["scores"] = {k: 100.0 for k in DEFAULT_PRESETS}
+        html = render([good, sparse], DEFAULT_PRESETS, limit=60)
+        body = panels(html)["capability"]
+        m = re.search(r'data-plot="capability">(.*?)</div><div class="xlab">',
+                      body, re.S)
+        self.assertNotIn("Sparse", m.group(1))
+        self.assertIn("Solid", m.group(1))
+
+    def test_axis_floor_is_stated_not_implied(self):
+        # A truncated axis is a real distortion; the page must say so.
+        html = render(board(), DEFAULT_PRESETS, limit=60)
+        self.assertIn("bars.truncated", html)
+        self.assertRegex(html, r'data-v-floor="[\d.]+"')
+
+    def test_bar_columns_are_keyboard_operable(self):
+        html = render(board(), DEFAULT_PRESETS, limit=60)
+        body = panels(html)["capability"]
+        m = re.search(r'data-plot="capability">(.*?)</div><div class="xlab">',
+                      body, re.S).group(1)
+        self.assertIn('role="button"', m)
+        self.assertIn('tabindex="0"', m)
+        self.assertIn('aria-pressed="false"', m)
+
+
+class SelectionTest(unittest.TestCase):
+    """Pinning is keyed on the canonical slug, so it works across views."""
+
+    def setUp(self):
+        self.html = render(board(), DEFAULT_PRESETS, limit=60)
+
+    def test_all_three_surfaces_carry_the_key(self):
+        body = panels(self.html)["capability"]
+        self.assertIn("data-plot=", body)
+        self.assertGreater(len(re.findall(r'class="fdot[^"]*"[^>]*data-model=',
+                                          body)), 0)
+        self.assertGreater(len(re.findall(r'<tr data-name="[^"]*"[^>]*data-model=',
+                                          body)), 0)
+
+    def test_keys_are_the_canonical_slug_not_the_display_name(self):
+        """The display name carries a serving variant and is per-view; the slug
+        is stable, which is what lets one pin light up every view."""
+        keys = set(re.findall(r'data-model="([^"]+)"', self.html))
+        self.assertTrue(keys)
+        for k in keys:
+            with self.subTest(key=k):
+                self.assertNotIn("(", k)
+                self.assertEqual(k, k.lower())
+
+    def test_scatter_dots_are_not_focusable(self):
+        """175 dots must not be 175 tab stops.
+
+        They carry no tabindex at all, so they are not in the tab order; the
+        bars and the table rows are the keyboard routes to the same selection.
+        """
+        body = panels(self.html)["capability"]
+        circ = re.findall(r'<circle[^>]*class="fdot[^"]*"[^>]*>', body)
+        self.assertTrue(circ)
+        for c in circ:
+            with self.subTest(dot=c[:60]):
+                self.assertNotIn("tabindex", c)
+        # ...but they are still clickable, which is the pointer route.
+        self.assertTrue(all("data-model=" in c for c in circ))
+
+    def test_bars_carry_a_display_name_for_the_chip(self):
+        """A pinned model's chip must show its name, not its slug.
+
+        The bars can show a model that is in no table on this view — a strong
+        unpriced model on an efficiency board — so they cannot rely on the rows
+        as the only source of display names.
+        """
+        html = render(board(), DEFAULT_PRESETS, limit=60)
+        body = panels(html)["capability"]
+        cols = re.findall(r'<div class="col"[^>]*>', body)
+        self.assertTrue(cols)
+        for c in cols:
+            with self.subTest(col=c[:70]):
+                self.assertIn("data-name=", c)
+
+    def test_pinned_ring_outranks_the_vendor_and_top_rings(self):
+        """The pin ring must beat every other ring rule.
+
+        The vendor rule is `.fdot[data-vendor]:not([data-vendor=""])`, which is
+        (0,3,0) — one class more specific than a plain `.fdot.pinned` at
+        (0,2,0). So the pin rendered as the neutral vendor ring and the whole
+        feature looked broken on exactly the dots people pin first. Reading
+        getComputedStyle is the only way to catch this: both states are "a dot
+        with a ring" to the eye.
+        """
+        html = render(board(), DEFAULT_PRESETS)
+        # Every combination that can occur must be enumerated.
+        for sel in (
+            ".fdot.pinned",
+            '.fdot[data-vendor]:not([data-vendor=""]).pinned',
+            ".fdot.top.pinned",
+            '.fdot[data-vendor]:not([data-vendor=""]).top.pinned',
+            '.fdot[data-vendor]:not([data-vendor=""]).front.pinned',
+        ):
+            with self.subTest(selector=sel):
+                self.assertIn(sel, html)
+        self.assertRegex(html, r"\.fdot\.pinned[^{]*\{[^}]*stroke:var\(--pin\)")
 
 
 class FullRankingTest(unittest.TestCase):
