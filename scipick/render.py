@@ -234,6 +234,10 @@ border-radius:var(--radius);padding:14px 16px 10px;box-shadow:var(--shadow)}
    and some overlap is unavoidable at small widths. */
 .fl{fill:var(--fg2);font-size:11px;font-family:var(--mono);
 paint-order:stroke;stroke:var(--panel);stroke-width:3.2px;stroke-linejoin:round}
+/* A label for a model the user pinned. Coloured and slightly heavier so it
+   reads as "you chose this" rather than merging into the frontier labels. */
+.fl.pinned{fill:var(--pin);font-weight:700}
+.fl.extra{fill:var(--pin);font-weight:700}
 .fline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;
 stroke-linecap:round;opacity:.85;vector-effect:non-scaling-stroke}
 /* Dots. Fill is either the vendor colour (set inline) or the neutral grey, so
@@ -670,8 +674,12 @@ JS = r"""
     if (history.replaceState) history.replaceState(null,'','#'+key);
     updateCount();
     // The pinned extras are per view — a model's score differs between views and
-    // may be absent in one — so the injection has to be redone on a tab switch.
-    if (typeof syncBarExtras === 'function' && pinned) syncBarExtras();
+    // may be absent in one — so both the bars and the scatter labels have to be
+    // redone on a tab switch. Each view has its own SVG.
+    if (typeof syncBarExtras === 'function' && pinned){
+      syncBarExtras();
+      if (typeof syncScatterLabels === 'function') syncScatterLabels();
+    }
   }
   tabs.forEach(function(x, i){
     x.addEventListener('click', function(){ show(x.dataset.key); });
@@ -817,7 +825,10 @@ JS = r"""
   // separate matters — the cap is the user's setting, the filters are a view —
   // and a row is visible only when all three allow it.
   var box = document.getElementById('q');
-  function norm(s){ return (s||'').toLowerCase(); }
+  // Fold separators out of both the query and the haystack, so "llama3.1",
+  // "llama-3.1" and "Llama 3.1" all match. A plain substring test fails on the
+  // most natural way to type a version number.
+  function norm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 
   function tableFilters(wrap){
     var f = wrap.querySelector('.fsel');
@@ -825,11 +836,13 @@ JS = r"""
   }
 
   function rowMatches(tr, q, fam){
-    if (q && tr.getAttribute('data-name').indexOf(q) < 0) return false;
+    // data-name is pre-lowercased markup; fold it the same way as the query.
+    if (q && foldAttr(tr.getAttribute('data-name')).indexOf(q) < 0) return false;
     // data-k-family is lowercased for sorting, so compare lowercased.
     if (fam && tr.getAttribute('data-k-family') !== fam.toLowerCase()) return false;
     return true;
   }
+  function foldAttr(s){ return String(s || '').replace(/[^a-z0-9]+/g, ''); }
 
   function filter(){
     var q = norm(box ? box.value.trim() : '');
@@ -1054,6 +1067,7 @@ JS = r"""
         !!(col && isPinned(col.getAttribute('data-model'))));
     });
     syncBarExtras();
+    syncScatterLabels();
     renderChips();
     var n = document.getElementById('pkcount');
     if (n) n.textContent = pinned.length
@@ -1155,6 +1169,105 @@ JS = r"""
     return d;
   }
 
+  /* ---------- labels for pinned models on the scatter ---------- */
+  // The scatter labels the frontier and the top three at render time, so a model
+  // the user pins is usually unlabelled — the dot is highlighted but anonymous,
+  // which is the whole complaint this fixes. The label is created here instead,
+  // because pinning happens in the browser and the page is a static file.
+  //
+  // Placement reuses the dot's own cx/cy from the SVG rather than recomputing the
+  // axis mapping in JS: those numbers are already exact, and duplicating the
+  // log-scale and padding maths would be a second source of truth that could
+  // drift from the server's.
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function syncScatterLabels(){
+    document.querySelectorAll('.fig').forEach(function(fig){
+      var svg = fig.querySelector('svg');
+      if (!svg) return;
+
+      // Drop labels added for models that are no longer pinned.
+      svg.querySelectorAll('text.fl.extra').forEach(function(t){
+        if (!isPinned(t.getAttribute('data-model'))) t.remove();
+      });
+
+      // Obstacles the placement must clear: every other label, plus the dots
+      // themselves — a label printing over a neighbouring marker is as bad as
+      // over another label.
+      var placed = [];
+      svg.querySelectorAll('text.fl').forEach(function(t){
+        var b = t.getBBox();
+        placed.push({x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height});
+        t.classList.toggle('pinned', isPinned(t.getAttribute('data-model')));
+      });
+      svg.querySelectorAll('circle.fdot').forEach(function(c){
+        var box = labelBoxFor(c);
+        if (box) placed.push(box);
+      });
+
+      pinned.forEach(function(key){
+        if (svg.querySelector('text.fl[data-model="' + cssEsc(key) + '"]')) return;
+        var dot = svg.querySelector('circle.fdot[data-model="' + cssEsc(key) + '"]');
+        // No dot means this model has no price or is below the coverage floor in
+        // this view, so there is nowhere honest to put a label.
+        if (!dot) return;
+        var nm = nameOf[key] || key;
+        var t = document.createElementNS(SVG_NS, 'text');
+        t.setAttribute('class', 'fl extra pinned');
+        t.setAttribute('data-model', key);
+        t.textContent = truncName(nm, 22);
+        svg.appendChild(t);   // must be in the DOM before getBBox
+
+        var cx = parseFloat(dot.getAttribute('cx'));
+        var cy = parseFloat(dot.getAttribute('cy'));
+        var anchor = cx > 720 ? 'end' : 'start';
+        var dx = anchor === 'end' ? -10 : 10;
+        t.setAttribute('text-anchor', anchor);
+        t.setAttribute('x', (cx + dx).toFixed(1));
+        var ty = cy - 9;
+        t.setAttribute('y', ty.toFixed(1));
+
+        // getBBox measures the glyphs, so the correction below is exact rather
+        // than estimated. `y` is a baseline, not a top edge: pushing the baseline
+        // just past an obstacle's bottom still leaves the ascent overlapping it —
+        // that is how "Llama 3.1 Instruct 8B" ended up printed across
+        // "Gemma 4 E4B". Shift by the measured baseline-to-top distance instead.
+        var GAP = 2.0;
+        for (var i = 0; i < 40; i++){
+          var b = t.getBBox();
+          var box = {x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height};
+          var hit = null;
+          for (var j = 0; j < placed.length; j++){
+            if (overlaps(box, placed[j])){
+              hit = Math.max(hit === null ? -Infinity : hit, placed[j].y1);
+            }
+          }
+          if (hit === null) break;
+          var ascent = ty - b.y;              // baseline minus glyph top
+          ty = hit + GAP + ascent;
+          t.setAttribute('y', ty.toFixed(1));
+        }
+        var fb = t.getBBox();
+        placed.push({x0: fb.x, y0: fb.y, x1: fb.x + fb.width, y1: fb.y + fb.height});
+      });
+    });
+  }
+
+  function overlaps(a, b){
+    return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  }
+  // Dots that already carry a label are obstacles; the rest are not, or the
+  // chart would have no room to place anything.
+  function labelBoxFor(circle){
+    var r = parseFloat(circle.getAttribute('r')) || 0;
+    if (r < 3.5) return null;
+    var cx = parseFloat(circle.getAttribute('cx'));
+    var cy = parseFloat(circle.getAttribute('cy'));
+    return {x0: cx - r, y0: cy - r, x1: cx + r, y1: cy + r};
+  }
+  function cssEsc(s){
+    return String(s).replace(/["\\]/g, '\\$&');
+  }
+
   // Re-derive every bar's height. Needed after injecting extras: a pinned model
   // below the previous floor would otherwise draw off-scale, and one above would
   // push the axis. The floor rule matches the server's — a little under the
@@ -1234,20 +1347,28 @@ JS = r"""
   var addBox = document.getElementById('pkinput');
   var pkList = document.getElementById('pklist');
   var pkNone = document.getElementById('pknone');
+  // Fold a searchable string by removing separators and lowercasing, so that
+  // "llama3.1", "llama-3.1" and "Llama 3.1" all match each other. Without this
+  // a plain substring test misses the most natural way to type a version number
+  // — model names in the data use spaces, users type dots and dashes.
+  function fold(s){
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
   function filterPicker(){
     if (!pkList) return;
-    var q = addBox ? addBox.value.trim().toLowerCase() : '';
+    var raw = addBox ? addBox.value.trim().toLowerCase() : '';
+    var q = fold(raw);
     var shown = 0;
     pkList.querySelectorAll('.pk-group').forEach(function(g){
       // Every model in a group shares the family, so match on that too — typing
       // a vendor name should surface its whole line.
-      var fam = (g.getAttribute('data-family') || '').toLowerCase();
+      var fam = fold(g.getAttribute('data-family') || '');
       var famHit = q && fam.indexOf(q) >= 0;
       var n = 0;
       g.querySelectorAll('.pk-item').forEach(function(it){
-        // The haystack is the item's own text: the name plus the release date
-        // already in the DOM, so no duplicated search string is needed.
-        var hay = it.textContent.toLowerCase();
+        // The haystack is the item's own text plus its data-model slug, both
+        // folded. The slug is what makes a pasted canonical name work.
+        var hay = fold(it.textContent + ' ' + (it.getAttribute('data-model') || ''));
         var hit = !q || famHit || hay.indexOf(q) >= 0;
         it.hidden = !hit;
         if (hit) n++;
@@ -1530,7 +1651,12 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
     # placed in an overlapping column band. That is O(n^2) on a few dozen
     # labels, entirely at render time, and needs no runtime layout.
     CHAR_W = 6.4          # ~11px monospace, plus a little slack
-    LINE_H = 12.5
+    # The label is drawn with its baseline at ty, so the glyphs occupy roughly
+    # [ty - ASCENT, ty + DESCENT]. Tracking the box this way — rather than a
+    # symmetric band around ty — is what keeps the collision test honest: a
+    # symmetric band under-counts how far a label reaches above its baseline.
+    ASCENT, DESCENT = 11.0, 3.5
+    GAP = 2.0
     PAD = 3.0
     placed: list[tuple[float, float, float, float]] = []   # x0,y0,x1,y1
     labels = []
@@ -1555,17 +1681,20 @@ def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
         for _ in range(40):
             hit = None
             for (px0, py0, px1, py1) in placed:
-                if x0 < px1 and px0 < x1 and ty - LINE_H * 0.8 < py1 and py0 < ty + LINE_H * 0.8:
-                    hit = py1
-                    break
+                if x0 < px1 and px0 < x1 and ty - ASCENT < py1 and py0 < ty + DESCENT:
+                    hit = py1 if hit is None else max(hit, py1)
             if hit is None:
                 break
-            ty = hit + LINE_H * 0.8
+            ty = hit + GAP + ASCENT
         ty = min(ty, H - PB - 4)
-        placed.append((x0, ty - LINE_H * 0.8, x1, ty + LINE_H * 0.8))
+        placed.append((x0, ty - ASCENT, x1, ty + DESCENT))
+        # data-model on the label is what lets the client find, highlight, and
+        # collide-test a label for a model it is about to pin. Without it the
+        # label is anonymous text and a pinned model can never be named.
         labels.append(
             f'<text x="{tx:.1f}" y="{ty:.1f}" class="fl" '
-            f'text-anchor="{anchor}">{esc(text)}</text>'
+            f'text-anchor="{anchor}" data-model="{esc(m["canonical"])}" '
+            f'data-anchor="{anchor}">{esc(text)}</text>'
         )
 
     s = strings_for(DEFAULT_LANG)

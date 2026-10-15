@@ -93,12 +93,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter.sort.newest": "Newest first, within family",
         "filter.sort.oldest": "Oldest first, within family",
         "filter.sort.az": "Name A–Z",
-        "filter.query.ph": "Filter by name, family, or vendor…",
         "filter.count": "{shown} of {total}",
         "filter.none": "Nothing matches these filters.",
         "filter.clear": "Reset",
-        "filter.active": "{n} filter(s) active",
-        "group.stale": "Released more than two years ago",
 
         # Methodology
         "method.title": "Weighting",
@@ -180,20 +177,13 @@ STRINGS: dict[str, dict[str, str]] = {
             "few points wide — a zero-based axis would draw every bar the same "
             "height."
         ),
-        "bars.axis": "Weighted score",
         "bars.truncated": (
             "Scores are shown from {floor} upward; the axis does not start at 0."
         ),
         "bars.none": "No model in this view has a usable score.",
-        "bars.notshown": "not in this view's chart",
         "bars.added": (
             "This chart shows the top {n} by score. The dashed bars were added "
             "by you and are not part of that ranking."
-        ),
-        "bars.showmore": "Show",
-        "bars.onlytop": (
-            "The chart shows the top {n} by score. A pinned model outside it is "
-            "added to the chart when there is room."
         ),
 
         # Model selection (shared by both charts and the table)
@@ -202,20 +192,14 @@ STRINGS: dict[str, dict[str, str]] = {
             "Search above to pin a model. Pinned models are highlighted on every "
             "chart in every view, and added to the bar chart."
         ),
-        "pick.missing": "No model with that name in this view.",
         "pick.search.ph": "Search models…",
         "pick.noresults": "No model matches that search.",
         "pick.group_hint": "Grouped by vendor, newest first.",
-        "pick.added": "in the table",
-        "pick.released": "Released",
         "pick.empty": "Nothing pinned yet.",
         "pick.clear": "Clear",
         "pick.remove": "Unpin",
         "pick.count": "{n} pinned",
-        "pick.limit": "Up to {n} models at once.",
         "pick.aria": "Pinned models",
-        "pick.add.ph": "Add a model by name…",
-        "pick.none": "This model is not in the current view.",
         "meta.source_code": "Source",
         "meta.selection": (
             "Selected from {aa} models: latest generation per product line, "
@@ -296,12 +280,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter.sort.newest": "同厂商内，新的在前",
         "filter.sort.oldest": "同厂商内，旧的在前",
         "filter.sort.az": "按名称 A–Z",
-        "filter.query.ph": "按名称、厂商或家族筛选…",
         "filter.count": "共 {total} 个，显示 {shown} 个",
         "filter.none": "没有符合当前筛选条件的模型。",
         "filter.clear": "重置",
-        "filter.active": "已启用 {n} 项筛选",
-        "group.stale": "发布已超过两年",
 
         "method.title": "权重",
         "method.desc": (
@@ -369,30 +350,20 @@ STRINGS: dict[str, dict[str, str]] = {
             "纵轴从接近最高分处开始、而非从 0 开始：领先者之间往往只差几分，"
             "从 0 起画会让所有柱子看起来一样高。"
         ),
-        "bars.axis": "加权得分",
         "bars.truncated": "得分自 {floor} 起显示，纵轴不从 0 开始。",
         "bars.none": "本视图没有可用得分的模型。",
-        "bars.notshown": "不在本视图图表中",
         "bars.added": "本图显示得分前 {n} 名。虚线柱子是你手动加入的，不属于该排名。",
-        "bars.showmore": "显示",
-        "bars.onlytop": "图表显示得分前 {n} 名；被固定但不在其中的模型，在有空位时会加入图表。",
 
         "pick.title": "对比",
         "pick.hint": "用上方的搜索框固定模型。固定的模型会在所有视图的图表中高亮，并加入柱状图。",
-        "pick.missing": "本视图中没有这个名称的模型。",
         "pick.search.ph": "搜索模型…",
         "pick.noresults": "没有匹配的模型。",
         "pick.group_hint": "按厂商分组，新的在前。",
-        "pick.added": "已在表格中",
-        "pick.released": "发布",
         "pick.empty": "尚未固定任何模型。",
         "pick.clear": "清空",
         "pick.remove": "取消固定",
         "pick.count": "已固定 {n} 个",
-        "pick.limit": "最多同时固定 {n} 个模型。",
         "pick.aria": "已固定的模型",
-        "pick.add.ph": "按名称添加模型…",
-        "pick.none": "该模型不在当前视图中。",
         "meta.source_code": "源码",
         "meta.selection": (
             "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"

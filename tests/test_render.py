@@ -191,27 +191,62 @@ class FrontierChartTest(unittest.TestCase):
         """No two labels may occupy the same row in an overlapping column band.
 
         The frontier is a staircase, so several models routinely share almost
-        the same x. Estimating each label's box from its glyph count is enough
-        to catch a return of the stacked-label smear seen in review.
+        the same x. The boxes here mirror the renderer's own model: a label is
+        drawn with its baseline at y, so its glyphs occupy [y - ascent,
+        y + descent]. Treating y as a centre would under-count how far a label
+        reaches above its baseline and let a real overlap pass.
         """
         svg = _frontier(board(), DEFAULT_PRESETS["capability"])
         labels = []
         for m in re.finditer(
             r'<text x="([0-9.]+)" y="([0-9.]+)" class="fl" '
-            r'text-anchor="(\w+)">([^<]*)</text>',
+            r'text-anchor="(\w+)"[^>]*>([^<]*)</text>',
             svg,
         ):
             x, y, anchor, text = float(m.group(1)), float(m.group(2)), \
                 m.group(3), m.group(4)
             w = len(text) * 6.4
             x0, x1 = (x - w, x) if anchor == "end" else (x, x + w)
-            labels.append((x0, x1, y, text))
-        for i, (ax0, ax1, ay, at) in enumerate(labels):
-            for (bx0, bx1, by, bt) in labels[i + 1:]:
-                overlap_x = ax0 < bx1 and bx0 < ax1
-                overlap_y = abs(ay - by) < 12.5 * 0.8
-                if overlap_x and overlap_y:
+            labels.append((x0, x1, y - 11.0, y + 3.5, text))
+        for i, (ax0, ax1, ay0, ay1, at) in enumerate(labels):
+            for (bx0, bx1, by0, by1, bt) in labels[i + 1:]:
+                if ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1:
                     self.fail(f"labels overlap: {at!r} and {bt!r}")
+
+    def test_every_label_carries_its_model_key(self):
+        """Without a key the client cannot find a label to highlight it.
+
+        Caught in review: pinned models were highlighted on the scatter but the
+        text stayed anonymous, so the dot you picked had no name next to it.
+        """
+        svg = _frontier(board(), DEFAULT_PRESETS["capability"])
+        texts = re.findall(r"<text [^>]*class=\"fl\"[^>]*>", svg)
+        self.assertTrue(texts)
+        for t in texts:
+            with self.subTest(tag=t[:80]):
+                self.assertIn("data-model=", t)
+
+    def test_label_box_accounts_for_baseline_ascent(self):
+        """The placement must treat y as a baseline, not a centre.
+
+        The original client-side nudge pushed the baseline just past an
+        obstacle's bottom edge, which still left the glyphs overlapping it by
+        roughly the ascent — "Llama 3.1 Instruct 8B" printed across
+        "Gemma 4 E4B". Both the server renderer and the client placement have to
+        use the asymmetric box.
+        """
+        import inspect
+        src = inspect.getsource(_frontier)
+        # Server side: an asymmetric glyph box, and no symmetric-band leftover.
+        self.assertIn("ASCENT, DESCENT", src)
+        self.assertNotIn("LINE_H * 0.8", src)
+
+        # Client side: the baseline is shifted by the measured ascent rather than
+        # by a fixed nudge off the obstacle's bottom edge.
+        html = render(board(), DEFAULT_PRESETS)
+        self.assertIn("var ascent = ty - b.y;", html)
+        self.assertIn("ty = hit + GAP + ascent;", html)
+        self.assertNotIn("ty = hit + 3;", html)
 
     def test_only_frontier_and_top_are_labelled(self):
         # Needs a board larger than the top-3 set, otherwise every point is a
@@ -488,7 +523,10 @@ class SelectionTest(unittest.TestCase):
     def test_keys_are_the_canonical_slug_not_the_display_name(self):
         """The display name carries a serving variant and is per-view; the slug
         is stable, which is what lets one pin light up every view."""
-        keys = set(re.findall(r'data-model="([^"]+)"', self.html))
+        # The markup only: the <script> block builds data-model attributes at
+        # runtime from template strings and would match this regex.
+        markup = self.html.split("<script>")[0]
+        keys = set(re.findall(r'data-model="([^"]+)"', markup))
         self.assertTrue(keys)
         for k in keys:
             with self.subTest(key=k):
@@ -659,9 +697,26 @@ class PickerTest(unittest.TestCase):
                 self.assertEqual(dated, sorted(dated, reverse=True), dates)
 
     def test_items_do_not_duplicate_the_search_haystack(self):
-        """The filter reads the item's own text, so no data-search attribute."""
+        """The filter reads the item's own text and slug, so no data-search attr."""
         self.assertNotIn("data-search=", self.list)
-        self.assertIn("textContent.toLowerCase()", self.html)
+        self.assertIn("it.textContent", self.html)
+
+    def test_search_folds_separators_on_both_sides(self):
+        """A version number typed with dots must match a name written with spaces.
+
+        "llama3.1" returned nothing against "Llama 3.1 Instruct 8B" under a plain
+        substring test, which is the most natural way to type it.
+        """
+        self.assertIn("function fold(s)", self.html)
+        self.assertRegex(self.html, r"replace\(/\[\^a-z0-9\]\+/g, ''\)")
+        # Applied to the query, the item text, and the family.
+        self.assertIn("var q = fold(raw);", self.html)
+        self.assertIn("fold(it.textContent", self.html)
+        self.assertIn("fold(g.getAttribute('data-family')", self.html)
+
+    def test_table_search_folds_separators_too(self):
+        self.assertRegex(self.html, r"function norm\(s\)\{ return String\(s")
+        self.assertIn("foldAttr(tr.getAttribute('data-name'))", self.html)
 
     def test_no_results_message_exists(self):
         self.assertIn('id="pknone"', self.list)
