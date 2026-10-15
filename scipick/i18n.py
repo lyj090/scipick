@@ -107,6 +107,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.byline": "Scoring and presentation by scipick.",
         "meta.license": "MIT licensed",
         "meta.source_code": "Source",
+        "meta.selection": (
+            "Selected from {aa} models: latest generation per product line, "
+            "mainstream vendors only ({superseded} superseded and {vendors} "
+            "non-allowlisted rows excluded)."
+        ),
 
         # Preset descriptions (built-in presets only; custom presets from the
         # config file are shown as written by their author).
@@ -193,6 +198,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.byline": "评分与呈现由 scipick 完成。",
         "meta.license": "MIT 许可",
         "meta.source_code": "源码",
+        "meta.selection": (
+            "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"
+            "（已排除 {superseded} 条旧代次、{vendors} 条非主流厂商）。"
+        ),
 
         "preset.capability.desc": "绝对能力，不考虑价格。",
         "preset.value.desc": "在接近前沿的模型中比每美元能力。",

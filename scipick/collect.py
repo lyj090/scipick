@@ -28,7 +28,7 @@ import re
 
 from . import config, fetch
 from .config import Preset
-from .curate import latest_only
+from .curate import filter_vendors, latest_only
 from .score import blended_price, efficiency, science_score
 
 #: Families used to pick cross-vendor reference models. Matching is substring
@@ -51,11 +51,64 @@ FAMILIES: dict[str, str] = {
 TOP_TIER = re.compile(r"\((?:max|xhigh|high|thinking|reasoning)[^)]*\)", re.I)
 
 
-def family_of(name: str, slug: str = "") -> str:
+#: Creator name -> display family. More reliable than parsing the model name,
+#: which often carries no vendor at all (Meta ships its flagship as "Muse").
+CREATOR_FAMILY: dict[str, str] = {
+    "OpenAI": "OpenAI",
+    "Google": "Google",
+    "Anthropic": "Anthropic",
+    "Meta": "Meta",
+    "Mistral": "Mistral",
+    "SpaceXAI": "xAI",
+    "xAI": "xAI",
+    "Cohere": "Cohere",
+    "Amazon": "Amazon",
+    "Microsoft": "Microsoft",
+    "NVIDIA": "NVIDIA",
+    "Perplexity": "Perplexity",
+    "AI21 Labs": "AI21",
+    "Alibaba": "Alibaba",
+    "DeepSeek": "DeepSeek",
+    "Z AI": "Z AI",
+    "Moonshot": "Moonshot",
+    "Kimi": "Moonshot",
+    "MiniMax": "MiniMax",
+    "Xiaomi": "Xiaomi",
+    "Tencent": "Tencent",
+    "ByteDance Seed": "ByteDance",
+    "Baidu": "Baidu",
+    "StepFun": "StepFun",
+    "OpenBMB": "OpenBMB",
+    "InclusionAI": "InclusionAI",
+    "LongCat": "LongCat",
+    "China Mobile": "China Mobile",
+    "IBM": "IBM",
+    "Allen Institute for AI": "AI2",
+    "Nous Research": "Nous",
+    "Liquid AI": "Liquid AI",
+    "Institute of Foundation Models": "IFM",
+    "LG AI Research": "LG",
+    "Upstage": "Upstage",
+}
+
+
+def family_of(name: str, slug: str = "", creator: str = "") -> str:
+    """Display family for a model.
+
+    Prefers the authoritative creator field; falls back to name matching for
+    records that lack it. The name heuristic alone would place Meta's "Muse"
+    line outside its family, since the vendor appears nowhere in the name.
+    """
+    if creator:
+        fam = CREATOR_FAMILY.get(creator.strip())
+        if fam:
+            return fam
     text = f"{name} {slug}".lower()
     for fam, pat in FAMILIES.items():
         if re.search(pat, text):
             return fam
+    if creator:
+        return creator.strip()
     return "Other"
 
 
@@ -77,10 +130,12 @@ def _record(aa_model: dict, presets: dict[str, Preset]) -> dict:
         coverages[key] = s.coverage
 
     price = blended_price(pricing)
+    creator = ((aa_model.get("model_creator") or {}).get("name") or "").strip()
     return {
         "name": aa_model.get("name") or aa_model.get("slug") or "unknown",
         "canonical": canonical_key(aa_model.get("name") or ""),
-        "family": family_of(aa_model.get("name", ""), aa_model.get("slug", "")),
+        "creator": creator,
+        "family": family_of(aa_model.get("name", ""), aa_model.get("slug", ""), creator),
         "release_date": aa_model.get("release_date"),
         "science_fit_score": scores.get("capability"),  # back-compat alias
         "scores": scores,
@@ -115,6 +170,7 @@ def collect(
     local_models: dict[str, list[str]] | None = None,
     presets: dict[str, Preset] | None = None,
     latest: bool = True,
+    mainstream_only: bool = True,
 ) -> tuple[list[dict], list[dict], dict]:
     """Join AA data with local availability.
 
@@ -161,6 +217,10 @@ def collect(
     if latest:
         rows, superseded = latest_only(rows)
 
+    vendors_removed = 0
+    if mainstream_only:
+        rows, vendors_removed = filter_vendors(rows)
+
     out = sorted(rows, key=lambda r: -(r.get("science_fit_score") or 0))
     for rec in out:
         rec["sources"].sort()
@@ -170,6 +230,8 @@ def collect(
         "aa_total": len(aa_models),
         "board_size": len(out),
         "superseded_removed": superseded,
+        "vendors_removed": vendors_removed,
+        "vendors_filtered": mainstream_only,
         "latest_only": latest,
         "local_sources": sorted(local_models.keys()),
         "unmatched_count": len(unmatched),

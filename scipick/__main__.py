@@ -42,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--local-base", default=None,
                    help="base URL of a local OpenAI-compatible gateway "
                         "(overrides SCIPICK_LOCAL_BASE)")
+    p.add_argument("--all-vendors", action="store_true",
+                   help="include every model creator, not just the mainstream "
+                        "allowlist in scipick/curate.py")
+    p.add_argument("--all-generations", action="store_true",
+                   help="include superseded generations, not just the latest "
+                        "version of each product line")
+    p.add_argument("--limit", type=int, default=60,
+                   help="rows to render per view (default: 60; 0 = no limit)")
     p.add_argument("--list-presets", action="store_true",
                    help="list available presets and exit")
     p.add_argument("--open", action="store_true", dest="do_open",
@@ -98,14 +106,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"warning: local gateway unreachable ({e}); continuing without it",
                   file=sys.stderr)
 
-    models, unmatched, meta = collect(aa_models, local_models, presets)
+    models, unmatched, meta = collect(
+        aa_models, local_models, presets,
+        latest=not args.all_generations,
+        mainstream_only=not args.all_vendors,
+    )
     meta["local_base"] = local_base or None
 
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     source_labels = load_source_labels(args.sources_file)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)) or ".", exist_ok=True)
-    html_doc = render(models, presets, meta, generated, source_labels)
+    html_doc = render(models, presets, meta, generated, source_labels,
+                      limit=(args.limit or None))
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(html_doc)
 

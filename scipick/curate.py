@@ -144,3 +144,79 @@ def gate(models: list[dict], preset: Preset) -> tuple[list[dict], list[dict], fl
             continue
         (kept if score >= threshold else below).append(m)
     return kept, below, threshold
+
+# --------------------------------------------------------------------------- #
+# Vendor allowlist
+# --------------------------------------------------------------------------- #
+
+#: Creators kept on the board. Names match the ``model_creator.name`` field from
+#: the Artificial Analysis API, which is authoritative — far more reliable than
+#: guessing a vendor from the model name (Meta's "Muse" line, for instance, has
+#: no vendor in the name at all).
+#:
+#: The list is deliberately limited to companies whose models someone would
+#: actually consider for research or engineering work: the frontier labs plus the
+#: significant Chinese and open-weight vendors. Without it the board carries ~60
+#: creators, most contributing a single entry, and the "Other" bucket swallows
+#: more rows than any named family.
+MAINSTREAM_CREATORS: tuple[str, ...] = (
+    # Frontier labs, US/EU
+    "OpenAI", "Google", "Anthropic", "Meta", "Mistral", "SpaceXAI", "xAI",
+    "Cohere", "Amazon", "Microsoft", "NVIDIA", "Perplexity", "AI21 Labs",
+    # Significant Chinese vendors
+    "Alibaba", "DeepSeek", "Z AI", "Moonshot", "Kimi", "MiniMax", "Xiaomi",
+    "Tencent", "ByteDance Seed", "Baidu", "StepFun", "OpenBMB", "InclusionAI",
+    "LongCat", "China Mobile",
+    # Notable research labs and open-weight vendors
+    "IBM", "Allen Institute for AI", "Nous Research", "Liquid AI",
+    "Institute of Foundation Models", "LG AI Research", "Upstage",
+)
+
+#: Creators whose models are kept even though the vendor is not on the list
+#: above. Meta's "Muse" line occasionally arrives under a different creator
+#: string; listing it explicitly keeps that line on the board.
+CREATOR_ALIASES: dict[str, str] = {
+    "muse": "Meta",
+    "xai": "xAI",
+}
+
+
+def is_mainstream(creator: str, allow: tuple[str, ...] | None = None,
+                  aliases: dict[str, str] | None = None) -> bool:
+    """Whether a model creator is on the board's allowlist.
+
+    Matching is case-insensitive and falls back to the alias table, so a vendor
+    is not lost to a capitalisation or naming change upstream.
+    """
+    if not creator:
+        return False
+    allow = MAINSTREAM_CREATORS if allow is None else allow
+    aliases = CREATOR_ALIASES if aliases is None else aliases
+    # An empty allowlist means "no filtering", not "filter everything out".
+    # An unset config field should not silently empty the board.
+    if not allow:
+        return True
+    c = creator.strip()
+    folded = {a.lower() for a in allow}
+    if c.lower() in folded:
+        return True
+    mapped = aliases.get(c.lower())
+    return bool(mapped and mapped.lower() in folded)
+
+
+def filter_vendors(models: list[dict],
+                   allow: tuple[str, ...] | None = None) -> tuple[list[dict], int]:
+    """Keep only models from allowlisted creators.
+
+    Returns ``(kept, dropped_count)``. Models with no creator recorded are kept:
+    the field is usually present, and dropping rows for a missing field would
+    hide real models rather than filter vendors.
+    """
+    kept, dropped = [], 0
+    for m in models:
+        creator = m.get("creator") or ""
+        if not creator or is_mainstream(creator, allow):
+            kept.append(m)
+        else:
+            dropped += 1
+    return kept, dropped

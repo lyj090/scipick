@@ -695,6 +695,12 @@ def render(
   <div class="note info" data-i18n-html="howto.body">{s['howto.body']}</div>
 
   <h2 data-i18n="meta.title">Data</h2>
+  <p class="lede" data-tpl="meta.selection"
+     data-v-aa="{meta.get('aa_total', 0)}"
+     data-v-superseded="{meta.get('superseded_removed', 0)}"
+     data-v-vendors="{meta.get('vendors_removed', 0)}">
+    Selected from {meta.get('aa_total', 0)} models: latest generation per product line,
+    mainstream vendors only.</p>
   <footer>
     <span><a href="https://artificialanalysis.ai">Artificial Analysis</a>
       <span data-i18n="meta.aa">data API</span> &mdash;

@@ -8,10 +8,13 @@ that keeps the value board meaningful.
 import unittest
 
 from scipick.config import Preset
+from scipick.collect import family_of
 from scipick.curate import (
     base_name,
+    filter_vendors,
     frontier_threshold,
     gate,
+    is_mainstream,
     latest_only,
     passes_frontier,
     product_line,
@@ -162,3 +165,77 @@ class FrontierGateTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VendorFilterTest(unittest.TestCase):
+    """The vendor allowlist keeps the board to companies worth considering.
+
+    Without it the catalogue carries ~60 creators, most contributing a single
+    entry, and the "Other" bucket grows larger than any named family.
+    """
+
+    def rec(self, creator):
+        return {"name": "x", "creator": creator, "scores": {"v": 1.0},
+                "coverage": {"v": 1.0}, "efficiency": {"v": 1.0}}
+
+    def test_major_vendors_are_kept(self):
+        for c in ("OpenAI", "Anthropic", "Google", "Meta", "Alibaba",
+                  "DeepSeek", "Z AI", "Xiaomi", "Moonshot", "Mistral"):
+            self.assertTrue(is_mainstream(c), f"{c} should be mainstream")
+
+    def test_obscure_vendor_is_dropped(self):
+        self.assertFalse(is_mainstream("Some Tiny Startup"))
+
+    def test_matching_is_case_insensitive(self):
+        self.assertTrue(is_mainstream("openai"))
+        self.assertTrue(is_mainstream("OPENAI"))
+
+    def test_muse_alias_maps_to_meta(self):
+        """Meta ships its flagship as "Muse", with no vendor in the name."""
+        self.assertTrue(is_mainstream("Muse"))
+        self.assertTrue(is_mainstream("muse"))
+
+    def test_filter_keeps_and_counts(self):
+        models = [self.rec("OpenAI"), self.rec("Obscure Labs"), self.rec("Meta")]
+        kept, dropped = filter_vendors(models)
+        self.assertEqual(len(kept), 2)
+        self.assertEqual(dropped, 1)
+        self.assertEqual([m["creator"] for m in kept], ["OpenAI", "Meta"])
+
+    def test_missing_creator_is_kept(self):
+        """A missing field should not hide a real model."""
+        models = [{"name": "x", "creator": "", "scores": {"v": 1.0},
+                   "coverage": {"v": 1.0}, "efficiency": {"v": 1.0}}]
+        kept, dropped = filter_vendors(models)
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, 0)
+
+    def test_empty_allowlist_keeps_everything(self):
+        models = [self.rec("OpenAI"), self.rec("Obscure Labs")]
+        kept, dropped = filter_vendors(models, allow=())
+        self.assertEqual(len(kept), 2)
+        self.assertEqual(dropped, 0)
+
+
+class FamilyResolutionTest(unittest.TestCase):
+    """Family must come from the authoritative creator field where possible."""
+
+    def test_creator_beats_name_heuristic(self):
+        """Meta's Muse line has no vendor in its name, so name matching fails."""
+        self.assertEqual(family_of("Muse Wonder Full (Max)", "", "Meta"), "Meta")
+
+    def test_kimi_is_mapped_to_its_vendor(self):
+        self.assertEqual(family_of("Kimi K3 (Max)", "", "Kimi"), "Moonshot")
+
+    def test_grok_maps_to_xai(self):
+        self.assertEqual(family_of("Grok 4.7 (Xhigh)", "", "SpaceXAI"), "xAI")
+
+    def test_falls_back_to_name_when_creator_absent(self):
+        self.assertEqual(family_of("Claude Opus 5.5", "claude-opus-5-5", ""), "Claude")
+
+    def test_unknown_creator_becomes_its_own_family(self):
+        """Not "Other": a named vendor is more informative than a bucket."""
+        self.assertEqual(family_of("Mystery 1", "", "Mystery Corp"), "Mystery Corp")
+
+    def test_no_creator_and_no_match_is_other(self):
+        self.assertEqual(family_of("Anonymous Model", "", ""), "Other")

@@ -127,11 +127,24 @@ silently:
 
 | Filter | Scope | What it removes |
 |---|---|---|
+| Mainstream vendors | global | Models from creators outside the allowlist |
 | Latest generation | global | Superseded versions of a product line |
 | `min_coverage` | per view | Models missing too many of that view's benchmarks |
 | `min_relative_score` | per view | Models too far below that view's frontier |
 
-The third is the one that needs judgement. Set it too low and a value board
+**Vendors.** The catalogue carries around sixty creators, most contributing a
+single entry. Ranking all of them buries the models you would actually consider
+and makes the "Other" family larger than any named one. The allowlist lives in
+`scipick/curate.py` and covers the frontier labs plus the significant Chinese and
+open-weight vendors. It is matched against the API's authoritative
+`model_creator` field, not against the model name — Meta ships its current
+flagship as "Muse", with the vendor appearing nowhere in the name, so name
+matching alone would file it under "Other".
+
+`--all-vendors` and `--all-generations` disable the two global filters if you
+want the complete field.
+
+The frontier gate is the filter that needs judgement. Set it too low and a value board
 fills with small models nobody would choose; too high and it becomes a
 capability board with extra steps. `0.65` on value keeps genuinely cheap
 frontier-class models (Claude Haiku, MiMo Flash) in play while excluding the
