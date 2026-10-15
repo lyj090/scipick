@@ -268,14 +268,24 @@ font-size:12px;color:var(--dim)}
 .sw.other{background:var(--dim2);opacity:.55}
 [data-theme="dark"] .sw.top{border-color:#e8c26a}
 
-/* ---------- table controls: expand + sort ---------- */
+/* ---------- table controls: filter, order, expand, sort ---------- */
 .tctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 -4px;
 font-size:13px;color:var(--dim)}
-.trows{display:flex;align-items:center;gap:7px}
-.tsel{font:inherit;font-size:12.5px;padding:4px 8px;border-radius:8px;
+.tf,.trows{display:flex;align-items:center;gap:7px}
+.tf>span{white-space:nowrap}
+.tsel{font:inherit;font-size:12.5px;padding:4px 8px;border-radius:8px;max-width:190px;
 border:1px solid var(--line);background:var(--panel);color:var(--fg2);cursor:pointer}
 .tsel:focus{outline:none;border-color:var(--accent)}
-.btn.tall{padding:5px 11px;font-size:12.5px;margin-left:auto}
+.btn.tall{padding:5px 11px;font-size:12.5px}
+/* The row count/expand control is pushed right; the reset next to it. */
+.tctl .btn.tall[data-more]{margin-left:auto}
+.tcount{font-family:var(--mono);font-size:11.5px;color:var(--dim2);margin-left:auto}
+.tcount:empty{margin-left:0}
+.tcount+.btn.tall[data-more]{margin-left:0}
+.tclear{color:var(--dim2)}
+.tnone{margin:14px 0 0;color:var(--dim2);font-size:13.5px}
+.tnone[hidden]{display:none}
+/* A filtered-out row must stay out even when it is also past the row cap. */
 th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}
 th[data-sort]:hover{color:var(--fg)}
 th[data-sort]::after{content:"";display:inline-block;width:0;height:0;margin-left:5px;
@@ -286,6 +296,9 @@ th[data-sort]:hover::after{opacity:.6}
 th[data-sort][aria-sort="ascending"]::after{border-bottom-color:var(--accent);opacity:1}
 th[data-sort][aria-sort="descending"]::after{border-bottom:none;
 border-top:4px solid var(--accent);opacity:1}
+/* Release date is monospace and slightly muted: it is reference data, not a
+   ranking signal, so it should not compete with the score columns. */
+td.rel,th.rel{font-family:var(--mono);font-size:12px;color:var(--dim)}
 /* Rows past the initial cap. Expressed as :not(.shown) rather than a bare
    .deep rule so that tr.hide still wins for a row that is both collapsed and
    filtered out — otherwise filtering could resurrect a hidden row. */
@@ -334,6 +347,17 @@ transition:opacity .15s,filter .15s}
 .col:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* The leader keeps the accent so the eye lands on it first. */
 .col:first-child .bx{background:linear-gradient(180deg,var(--accent),var(--bar1))}
+/* A bar the *user* added by pinning a model that is not in the top N. It is
+   drawn distinctly — hollow, dashed — because it is not part of the ranking the
+   chart computed, and a model added this way may also sit below the coverage
+   floor the chart otherwise enforces. Silently drawing it like the others would
+   make the chart claim a comparison it did not make. */
+.col.extra .bx{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--pin) 22%,transparent) 0 4px,transparent 4px 8px);
+border:1px dashed var(--pin);border-bottom:none}
+.col.extra .bv{color:var(--pin)}
+.xlab .c.extra span{color:var(--pin);font-style:italic}
+.bars .bnote{color:var(--dim2);font-size:12px;margin:8px 0 0}
 /* A pinned column is marked on the bar and the value label, not by tinting the
    whole column, so the height still reads as height. */
 .col.pinned .bx{outline:2px solid var(--pin);outline-offset:-2px;
@@ -354,13 +378,34 @@ margin:20px 0 4px}
 .pk-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
 color:var(--dim)}
 .pk-count{font-family:var(--mono);font-size:11.5px;color:var(--pin)}
-.pk-add{display:flex;align-items:center}
-.pk-add input{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;
-border:1px solid var(--line);background:var(--bg);color:var(--fg);width:190px}
-.pk-add input:focus{outline:none;border-color:var(--accent);width:230px}
+.pk-search{display:flex;align-items:center}
+.pk-search input{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;
+border:1px solid var(--line);background:var(--bg);color:var(--fg);width:210px}
+.pk-search input:focus{outline:none;border-color:var(--accent);width:250px}
 .pk-hint{color:var(--dim2);font-size:12.5px;margin:7px 0 0}
 .pk-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .pk-chips:empty{display:none}
+/* The picker list is collapsed until the search box is used, so 290 rows cost
+   nothing on first paint. It scrolls rather than growing the page. */
+.pk-list{max-height:340px;overflow-y:auto;margin-top:12px;
+border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:6px}
+.pk-list[hidden]{display:none}
+.pk-note{color:var(--dim2);font-size:12px;margin:4px 8px 8px}
+.pk-none{color:var(--dim2);font-size:13px;margin:14px 8px;text-align:center}
+.pk-group{margin-bottom:6px}
+.pg-head{display:flex;align-items:baseline;gap:7px;padding:6px 8px 4px;
+position:sticky;top:0;background:var(--bg);z-index:1}
+.pg-n{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+color:var(--dim)}
+.pg-c{font-family:var(--mono);font-size:11px;color:var(--dim2)}
+.pk-item{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;
+appearance:none;border:none;background:transparent;font:inherit;font-size:13.5px;
+color:var(--fg);padding:5px 8px;border-radius:8px;cursor:pointer}
+.pk-item:hover{background:var(--soft)}
+.pk-item[aria-pressed="true"]{background:var(--pin-soft);color:var(--pin);font-weight:650}
+.pk-item .pi-n{flex:1;min-width:0;overflow-wrap:anywhere}
+.pk-item .pi-d{flex:none;font-family:var(--mono);font-size:11.5px;color:var(--dim2)}
+.pk-item[hidden],.pk-group[hidden]{display:none}
 .chip{display:inline-flex;align-items:center;gap:7px;background:var(--pin-soft);
 border:1px solid color-mix(in srgb,var(--pin) 30%,var(--line));
 color:var(--fg);border-radius:99px;padding:3px 6px 3px 11px;font-size:12.5px;
@@ -534,6 +579,9 @@ JS = r"""
   var LANGS = __LANGS__;
   var DEFAULT_LANG = __DEFAULT_LANG__;
   var root = document.documentElement;
+  // Declared first: the selection code below reads current.tab, and a var that
+  // is only assigned at boot would read as undefined if any handler ran early.
+  var current = { lang: null, theme: 'auto', tab: null };
 
   /* ---------- language ---------- */
   function t(lang, key){
@@ -621,6 +669,9 @@ JS = r"""
     current.tab = key;
     if (history.replaceState) history.replaceState(null,'','#'+key);
     updateCount();
+    // The pinned extras are per view — a model's score differs between views and
+    // may be absent in one — so the injection has to be redone on a tab switch.
+    if (typeof syncBarExtras === 'function' && pinned) syncBarExtras();
   }
   tabs.forEach(function(x, i){
     x.addEventListener('click', function(){ show(x.dataset.key); });
@@ -675,14 +726,12 @@ JS = r"""
     return parseInt(wrap.getAttribute('data-cap') || '0', 10) ||
            wrap.querySelectorAll('tbody tr').length;
   }
-  // Declared here, before the sort handler that reads it. `var box` is
-  // assigned further down, but a function declaration is hoisted, so
-  // searchActive() is safe to call from any handler defined below.
-  function searchActive(){ return !!(box && box.value.trim()); }
   document.querySelectorAll('.tw[data-total]').forEach(function(wrap){
     wrap.setAttribute('data-cap',
       String(wrap.querySelectorAll('tbody tr:not(.deep)').length));
-    var sel = wrap.querySelector('.tsel');
+    // Only the rows control is bound here. The family and order selects are
+    // bound in the filter block below, where filter() is in scope.
+    var sel = wrap.querySelector('.tselrows');
     if (sel) sel.addEventListener('change', function(){
       var n = parseInt(sel.value, 10) || 0;
       var rows = wrap.querySelectorAll('tbody tr').length;
@@ -701,7 +750,10 @@ JS = r"""
   // Sorting reads pre-rendered data-k-* attributes rather than cell text, so it
   // never has to parse "$1.20" or an em dash, and missing values sort last in
   // both directions instead of being treated as zero.
-  var TEXT_COLS = { model: 1, family: 1 };
+  // Text-sorted columns. `date` belongs here even though it looks numeric:
+  // parseFloat("2026-09-02") is 2026, so a numeric sort would collapse every
+  // same-year date into a tie. ISO dates sort correctly as plain strings.
+  var TEXT_COLS = { model: 1, family: 1, date: 1 };
   function sortTable(th){
     var table = th.closest('table');
     var key = th.getAttribute('data-sort');
@@ -739,16 +791,17 @@ JS = r"""
 
     // Re-number: the rank column must show the visible order, not the order the
     // rows happened to be rendered in.
-    rows.forEach(function(tr, i){
-      var cell = tr.querySelector('td.rk');
-      if (cell){
-        cell.textContent = String(i + 1);
-        cell.classList.toggle('top', i < 3);
-      }
-    });
+    renumber(tbody);
+    // A column sort overrides the Order dropdown, so reset it to "by rank" —
+    // leaving it reading "newest first" while the rows are date-sorted by a
+    // click would make the control lie.
     var wrap = table.closest('.tw');
-    if (wrap) applyRows(wrap, searchActive() ? wrap.querySelectorAll('tbody tr').length
-                                             : capOf(wrap));
+    if (wrap){
+      var sel = wrap.querySelector('.ssel');
+      if (sel) sel.value = 'rank';
+      applyRows(wrap, capOf(wrap));
+      filter();
+    }
   }
   document.querySelectorAll('th[data-sort]').forEach(function(th){
     th.setAttribute('tabindex', '0');
@@ -758,24 +811,135 @@ JS = r"""
     });
   });
 
-  /* ---------- search ---------- */
+  /* ---------- search and per-table filters ---------- */
+  // One visibility rule, applied from three inputs: the global search box, the
+  // table's family dropdown, and (via applyRows) the row cap. Keeping them
+  // separate matters — the cap is the user's setting, the filters are a view —
+  // and a row is visible only when all three allow it.
   var box = document.getElementById('q');
   function norm(s){ return (s||'').toLowerCase(); }
+
+  function tableFilters(wrap){
+    var f = wrap.querySelector('.fsel');
+    return { family: f ? f.value : '' };
+  }
+
+  function rowMatches(tr, q, fam){
+    if (q && tr.getAttribute('data-name').indexOf(q) < 0) return false;
+    // data-k-family is lowercased for sorting, so compare lowercased.
+    if (fam && tr.getAttribute('data-k-family') !== fam.toLowerCase()) return false;
+    return true;
+  }
+
   function filter(){
     var q = norm(box ? box.value.trim() : '');
-    document.querySelectorAll('tbody tr[data-name]').forEach(function(tr){
-      var hit = !q || tr.getAttribute('data-name').indexOf(q) >= 0;
-      tr.classList.toggle('hide', !hit);
-    });
-    // A match below the fold would otherwise be invisible and the count would
-    // read 0, so while a query is active every row is eligible and only the
-    // filter decides visibility. Clearing the query restores the row cap.
-    document.querySelectorAll('.tw[data-total]').forEach(function(w){
-      applyRows(w, q ? w.querySelectorAll('tbody tr').length : capOf(w));
+    document.querySelectorAll('.tw[data-total]').forEach(function(wrap){
+      var fam = tableFilters(wrap).family;
+      var any = false;
+      wrap.querySelectorAll('tbody tr[data-name]').forEach(function(tr){
+        var hit = rowMatches(tr, q, fam);
+        tr.classList.toggle('hide', !hit);
+        if (hit) any = true;
+      });
+      // A match below the fold would otherwise be invisible and the count would
+      // read 0, so while a filter is active every surviving row is eligible and
+      // only the filter decides visibility. Clearing them restores the cap.
+      var filtering = q || fam;
+      applyRows(wrap, filtering ? wrap.querySelectorAll('tbody tr').length
+                                : capOf(wrap));
+      var none = wrap.querySelector('[data-fnone]');
+      if (none) none.hidden = any;
+      var cnt = wrap.querySelector('[data-tcount]');
+      if (cnt){
+        var total = wrap.querySelectorAll('tbody tr[data-name]').length;
+        var shown = wrap.querySelectorAll('tbody tr[data-name]:not(.hide)').length;
+        // Only worth showing when it says something the row count does not.
+        cnt.textContent = filtering
+          ? t(current.lang || DEFAULT_LANG, 'filter.count')
+              .replace('{shown}', shown).replace('{total}', total)
+          : '';
+      }
     });
     updateCount();
   }
   if (box) box.addEventListener('input', filter);
+
+  document.querySelectorAll('.tw[data-total]').forEach(function(wrap){
+    var f = wrap.querySelector('.fsel');
+    if (f) f.addEventListener('change', filter);
+    var clr = wrap.querySelector('[data-fclear]');
+    if (clr) clr.addEventListener('click', function(){
+      var s = wrap.querySelector('.fsel'); if (s) s.value = '';
+      var o = wrap.querySelector('.ssel'); if (o) o.value = 'rank';
+      if (box) box.value = '';
+      orderRows(wrap, 'rank');
+      filter();
+    });
+    var ord = wrap.querySelector('.ssel');
+    if (ord) ord.addEventListener('change', function(){
+      orderRows(wrap, ord.value);
+    });
+  });
+
+  /* ---------- ordering ---------- */
+  // "Newest first, within family" groups the table by vendor and then orders
+  // each group by release date. The point is comparing a vendor's own line
+  // against itself, which is what you do when deciding whether to upgrade —
+  // a straight date sort would instead interleave every vendor by recency.
+  function orderRows(wrap, mode){
+    var tbody = wrap.querySelector('tbody');
+    if (!tbody) return;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var rankOf = new Map();
+    rows.forEach(function(tr, i){ rankOf.set(tr, i); });
+
+    var cmp;
+    if (mode === 'az'){
+      cmp = function(a, b){
+        var x = a.getAttribute('data-k-model') || '';
+        var y = b.getAttribute('data-k-model') || '';
+        return x < y ? -1 : (x > y ? 1 : 0);
+      };
+    } else if (mode === 'newest' || mode === 'oldest'){
+      // dir is +1 for ascending dates (oldest first), -1 for descending.
+      // Applying it to the *less-than* branch is what makes them opposites:
+      // under -1, a smaller date returns 1, pushing the older row after the
+      // newer one. Getting this backwards silently produced oldest-first for
+      // both modes, which looks plausible until you read the dates.
+      var dir = (mode === 'newest') ? -1 : 1;
+      cmp = function(a, b){
+        // Family first, then date within it. Missing dates go last either way,
+        // since "unknown" is not "old".
+        var fa = a.getAttribute('data-k-family') || '';
+        var fb = b.getAttribute('data-k-family') || '';
+        if (fa !== fb) return fa < fb ? -1 : 1;
+        var da = a.getAttribute('data-k-date') || '';
+        var db = b.getAttribute('data-k-date') || '';
+        if (da === db) return rankOf.get(a) - rankOf.get(b);
+        if (!da) return 1;
+        if (!db) return -1;
+        return da < db ? -dir : (da > db ? dir : 0);
+      };
+    } else {
+      cmp = function(a, b){ return rankOf.get(a) - rankOf.get(b); };
+    }
+    rows.slice().sort(cmp).forEach(function(tr){ tbody.appendChild(tr); });
+    // The rank column is the visible order, so it is renumbered after any
+    // reorder — otherwise "1" would sit on a row that is no longer first.
+    renumber(tbody);
+    applyRows(wrap, parseInt(wrap.getAttribute('data-cap') || '0', 10) || 0);
+  }
+
+  function renumber(tbody){
+    var rows = tbody.querySelectorAll('tr');
+    rows.forEach(function(tr, i){
+      var cell = tr.querySelector('td.rk');
+      if (cell){
+        cell.textContent = String(i + 1);
+        cell.classList.toggle('top', i < 3);
+      }
+    });
+  }
 
   /* ---------- count, scoped to the visible panel ---------- */
   var counter = document.getElementById('qcount');
@@ -889,11 +1053,137 @@ JS = r"""
       c.classList.toggle('pinned',
         !!(col && isPinned(col.getAttribute('data-model'))));
     });
+    syncBarExtras();
     renderChips();
     var n = document.getElementById('pkcount');
     if (n) n.textContent = pinned.length
       ? t(current.lang || DEFAULT_LANG, 'pick.count').replace('{n}', pinned.length)
       : '';
+  }
+
+  /* ---------- pinned models in the bar chart ---------- */
+  // The bar chart shows only the top N by score, so a pinned model is often not
+  // in it. Rather than silently highlighting nothing, the pinned model is added
+  // as an extra bar — which is the point of pinning one from the table.
+  //
+  // Extras are marked with .extra and rebuilt from scratch on every change, so
+  // they can never drift from `pinned`. Each carries the view index it belongs
+  // to via its enclosing [data-plot], and the score comes from __SCORES__, which
+  // is why a model gated out of this view's table still gets a correct bar.
+  function syncBarExtras(){
+    var views = __VIEWS__ || [];
+    var vi = views.indexOf(current.tab);
+    if (vi < 0) return;
+    document.querySelectorAll('.bars').forEach(function(box){
+      var plot = box.querySelector('.plot');
+      var xlab = box.querySelector('.xlab');
+      if (!plot || !xlab) return;
+      // Drop previously injected extras and any note about them.
+      plot.querySelectorAll('.col.extra').forEach(function(c){ c.remove(); });
+      xlab.querySelectorAll('.c.extra').forEach(function(c){ c.remove(); });
+      var oldNote = box.querySelector('.bnote');
+      if (oldNote) oldNote.remove();
+
+      var inChart = {};
+      plot.querySelectorAll('.col[data-model]').forEach(function(c){
+        inChart[c.getAttribute('data-model')] = 1;
+      });
+      var added = 0;
+      pinned.forEach(function(key){
+        if (inChart[key]) return;                 // already a real bar
+        var sc = (__SCORES__[key] || [])[vi];
+        if (sc === null || sc === undefined) return;   // no score in this view
+        var nm = nameOf[key] || key;
+        plot.appendChild(makeBar(key, nm, sc, true));
+        xlab.appendChild(makeLabel(key, nm, true));
+        inChart[key] = 1;
+        added++;
+      });
+      if (added){
+        // Say that the dashed bars were added by hand. Without this the chart
+        // silently mixes its own top-N ranking with user-added entries, and a
+        // reader cannot tell which bars were ranked.
+        //
+        // The text is set here rather than left to applyLang's data-tpl sweep:
+        // syncBarExtras is itself called from applyPins, which runs at the end of
+        // applyLang, so a freshly created node would miss the sweep and render
+        // empty until the next language switch.
+        var p = document.createElement('p');
+        p.className = 'bnote';
+        p.setAttribute('data-tpl', 'bars.added');
+        p.setAttribute('data-v-n', String(plot.children.length));
+        p.textContent = t(current.lang || DEFAULT_LANG, 'bars.added')
+          .replace('{n}', String(plot.children.length));
+        box.appendChild(p);
+      }
+      rescaleBars(plot);
+      // Keep the pinned extra's label in sync too, since makeLabel marks it.
+      xlab.querySelectorAll('.c').forEach(function(c, i){
+        var col = plot.children[i];
+        c.classList.toggle('pinned',
+          !!(col && isPinned(col.getAttribute('data-model'))));
+      });
+    });
+  }
+
+  function truncName(name, n){
+    var base = String(name).split(' (')[0];
+    return base.length <= n ? base : base.slice(0, n - 1) + '…';
+  }
+
+  function makeBar(key, name, score, extra){
+    var d = document.createElement('div');
+    d.className = 'col' + (extra ? ' extra' : '');
+    d.setAttribute('data-model', key);
+    d.setAttribute('data-name', name);
+    d.setAttribute('title', name + ' — ' + score.toFixed(1));
+    d.setAttribute('role', 'button');
+    d.setAttribute('tabindex', '0');
+    d.setAttribute('aria-pressed', 'false');
+    d.setAttribute('aria-label', name);
+    d.innerHTML = '<span class="bv">' + score.toFixed(1) + '</span>' +
+                  '<div class="bx"></div>';
+    return d;
+  }
+
+  function makeLabel(key, name, extra){
+    var d = document.createElement('div');
+    d.className = 'c' + (extra ? ' extra' : '');
+    d.setAttribute('title', name);
+    d.innerHTML = '<span></span>';
+    d.firstChild.textContent = truncName(name, 30);
+    return d;
+  }
+
+  // Re-derive every bar's height. Needed after injecting extras: a pinned model
+  // below the previous floor would otherwise draw off-scale, and one above would
+  // push the axis. The floor rule matches the server's — a little under the
+  // lowest bar shown — so the axis stays honest and the note stays accurate.
+  function rescaleBars(plot){
+    var cols = [].slice.call(plot.children);
+    if (!cols.length) return;
+    var vals = cols.map(function(c){
+      var bv = c.querySelector('.bv');
+      return bv ? parseFloat(bv.textContent) : NaN;
+    }).filter(function(v){ return !isNaN(v); });
+    if (!vals.length) return;
+    var vmax = Math.max.apply(null, vals);
+    var vmin = Math.min.apply(null, vals);
+    var span = vmax - vmin;
+    var floor = Math.max(0, vmin - Math.max(span * 0.25, 1));
+    var rng = (vmax - floor) || 1;
+    cols.forEach(function(c, i){
+      var bx = c.querySelector('.bx');
+      var v = vals[i];
+      if (!bx || v === undefined) return;
+      bx.style.height = Math.max(2, Math.min(100, (v - floor) / rng * 100)).toFixed(1) + '%';
+    });
+    // The "scores shown from X" note is a claim about the axis, so it has to
+    // follow the floor rather than stay at the server-rendered value.
+    var box = plot.parentNode;
+    var note = box && box.nextElementSibling;
+    var tpl = note && note.querySelector ? note.querySelector('[data-tpl="bars.truncated"]') : null;
+    if (tpl) tpl.setAttribute('data-v-floor', floor.toFixed(1));
   }
 
   function renderChips(){
@@ -938,25 +1228,67 @@ JS = r"""
   if (clr) clr.addEventListener('click', function(){
     pinned = []; savePins(); applyPins();
   });
-  // Add-by-name. Matched case-insensitively on the display name, and on the
-  // slug, so "claude-opus-5.5" works as well as "Claude Opus 5.5 (Max...)".
+  // Searchable picker. The list stays collapsed until the box is focused, and
+  // filters live: groups whose members all fail are hidden along with their
+  // heading, so the result reads as a short list rather than a list of gaps.
   var addBox = document.getElementById('pkinput');
-  if (addBox) addBox.addEventListener('change', function(){
-    var q = addBox.value.trim().toLowerCase();
-    if (!q) return;
-    var hit = null;
-    document.querySelectorAll('[data-model]').forEach(function(el){
-      if (hit) return;
-      var key = el.getAttribute('data-model');
-      var nm = (nameOf[key] || '').toLowerCase();
-      if (key.toLowerCase() === q || nm === q) hit = key;
-      else if (!hit && (nm.indexOf(q) >= 0 || key.toLowerCase().indexOf(q) >= 0)) hit = key;
+  var pkList = document.getElementById('pklist');
+  var pkNone = document.getElementById('pknone');
+  function filterPicker(){
+    if (!pkList) return;
+    var q = addBox ? addBox.value.trim().toLowerCase() : '';
+    var shown = 0;
+    pkList.querySelectorAll('.pk-group').forEach(function(g){
+      // Every model in a group shares the family, so match on that too — typing
+      // a vendor name should surface its whole line.
+      var fam = (g.getAttribute('data-family') || '').toLowerCase();
+      var famHit = q && fam.indexOf(q) >= 0;
+      var n = 0;
+      g.querySelectorAll('.pk-item').forEach(function(it){
+        // The haystack is the item's own text: the name plus the release date
+        // already in the DOM, so no duplicated search string is needed.
+        var hay = it.textContent.toLowerCase();
+        var hit = !q || famHit || hay.indexOf(q) >= 0;
+        it.hidden = !hit;
+        if (hit) n++;
+      });
+      g.hidden = (n === 0);
+      shown += n;
     });
-    if (hit){ if (!isPinned(hit)) togglePin(hit); addBox.value = ''; }
-  });
+    if (pkNone) pkNone.hidden = (shown > 0);
+  }
+  if (addBox && pkList){
+    addBox.addEventListener('focus', function(){ pkList.hidden = false; });
+    addBox.addEventListener('input', function(){
+      pkList.hidden = false;
+      filterPicker();
+    });
+    addBox.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){ pkList.hidden = true; addBox.blur(); }
+      if (e.key === 'Enter'){
+        // Enter takes the first visible match, so the flow is type-and-enter
+        // without needing the pointer.
+        var first = pkList.querySelector('.pk-item:not([hidden])');
+        if (first){ togglePin(first.getAttribute('data-model')); addBox.value = '';
+                    filterPicker(); }
+      }
+    });
+    // Clicking a name in the list pins it. The document-level handler would also
+    // catch this, but stopping here keeps the intent explicit and avoids the
+    // list collapsing mid-interaction.
+    pkList.addEventListener('click', function(e){
+      var it = e.target.closest ? e.target.closest('.pk-item') : null;
+      if (!it) return;
+      e.stopPropagation();
+      togglePin(it.getAttribute('data-model'));
+    });
+    // Click-away closes the list.
+    document.addEventListener('click', function(e){
+      if (!e.target.closest || !e.target.closest('.picker')) pkList.hidden = true;
+    });
+  }
 
   /* ---------- boot ---------- */
-  var current = { lang: null, theme: 'auto', tab: null };
   var initLang = null, initTheme = null;
   try { initLang = localStorage.getItem('scipick.lang');
         initTheme = localStorage.getItem('scipick.theme'); } catch(e){}
@@ -1005,6 +1337,16 @@ def fmt_eff(v) -> str:
     if v >= 100:
         return f"{v:.0f}"
     return f"{v:.1f}"
+
+
+def _fmt_date(iso: str) -> str:
+    """Render an ISO release date compactly.
+
+    Kept as ISO (YYYY-MM-DD) rather than localised: it is the same string in
+    both languages, sorts lexicographically, and a model release date is a fact
+    rather than prose.
+    """
+    return iso if iso else "—"
 
 
 def bar(pct: float) -> str:
@@ -1400,6 +1742,7 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float,
     cov_cls = "num cov-lo" if cov < 0.75 else "num"
     # Search haystack: model name plus family, so "claude" finds the family.
     hay = esc((m["name"] + " " + m["family"]).lower())
+    released = m.get("release_date") or ""
 
     # Sort keys let the client reorder without re-parsing the rendered cells.
     # Missing values sort last in both directions rather than as zero, which
@@ -1410,6 +1753,11 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float,
     # Collapsed rows carry a class rather than the [hidden] attribute: the
     # attribute cannot be undone by toggling a class, and the JS cap re-assigns
     # this class positionally after every sort.
+    #
+    # Note there is no separate data-family / data-date / data-score here: the
+    # data-k-* sort keys already carry exactly those values, and duplicating them
+    # would add three attributes to ~1,200 rows. Filtering and ordering read the
+    # data-k-* keys instead.
     deep_attr = ' class="deep"' if deep else ""
     return (
         f'<tr data-name="{hay}"{deep_attr}'
@@ -1419,7 +1767,8 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float,
         f' data-k-score="{sk(score)}"'
         f' data-k-price="{sk(price)}"'
         f' data-k-eff="{sk(eff)}"'
-        f' data-k-cov="{sk(cov)}">'
+        f' data-k-cov="{sk(cov)}"'
+        f' data-k-date="{esc(released)}">'
         f'<td class="{rk_cls}">{rank}</td>'
         f'<td><span class="nm">{name}</span></td>'
         f'<td class="fam">{esc(m["family"])}</td>'
@@ -1427,6 +1776,7 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float,
         f'<td class="num">{fmt_price(price)}</td>'
         f'<td class="num">{fmt_eff(eff)}</td>'
         f'<td class="{cov_cls}">{cov:.2f}</td>'
+        f'<td class="num rel">{esc(_fmt_date(released))}</td>'
         "</tr>"
     )
 
@@ -1459,32 +1809,64 @@ def _table(models: list[dict], preset: Preset, limit: int | None = None) -> str:
     sort_key = "panel.sorted.eff" if preset.rank_by == "efficiency" else "panel.sorted.score"
 
     hidden = max(0, total - cap) if cap else 0
+
+    # Family filter options come from the models in this view, so the dropdown
+    # never offers a family that would return nothing.
+    fams = sorted({m["family"] for m in models}, key=lambda f: f.lower())
+    fam_opts = "".join(
+        f'<option value="{esc(f)}">{esc(f)}</option>' for f in fams
+    )
+    rows_opts = ""
     if hidden:
         # Offer only caps smaller than the board, de-duplicated against the
         # default, so no option is a no-op.
         caps = sorted({c for c in (25, 50, 100, 200) if c < total} | {cap})
-        opts = "".join(
+        rows_opts = "".join(
             f'<option value="{c}"{" selected" if c == limit else ""}>{c}</option>'
             for c in caps
         )
-        # The "All" option carries an i18n hook; the numeric caps do not need
-        # one. aria-label is set to the same string so the control is not
-        # announced as an unlabelled combobox.
-        all_label = esc(strings_for(DEFAULT_LANG)["table.all"])
-        opts += (f'<option value="0" data-i18n="table.all">{all_label}</option>')
-        ctl = (
-            f'<div class="tctl">'
-            f'<label class="trows">'
-            f'<span data-i18n="table.rows">Rows</span>'
-            f'<select class="tsel" data-i18n-title="table.rows" '
-            f'title="{esc(strings_for(DEFAULT_LANG)["table.rows"])}">{opts}</select>'
-            f'</label>'
+        rows_opts += (f'<option value="0" data-i18n="table.all">'
+                      f'{esc(strings_for(DEFAULT_LANG)["table.all"])}</option>')
+
+    s_dl = strings_for(DEFAULT_LANG)
+    ctl = (
+        f'<div class="tctl">'
+        f'<label class="tf"><span data-i18n="filter.family">Family</span>'
+        f'<select class="tsel fsel" data-i18n-title="filter.family" '
+        f'title="{esc(s_dl["filter.family"])}">'
+        f'<option value="" data-i18n="filter.all_families">'
+        f'{esc(s_dl["filter.all_families"])}</option>{fam_opts}</select></label>'
+        f'<label class="tf"><span data-i18n="filter.sort">Order</span>'
+        f'<select class="tsel ssel" data-i18n-title="filter.sort" '
+        f'title="{esc(s_dl["filter.sort"])}">'
+        f'<option value="rank" data-i18n="filter.sort.rank">'
+        f'{esc(s_dl["filter.sort.rank"])}</option>'
+        f'<option value="newest" data-i18n="filter.sort.newest">'
+        f'{esc(s_dl["filter.sort.newest"])}</option>'
+        f'<option value="oldest" data-i18n="filter.sort.oldest">'
+        f'{esc(s_dl["filter.sort.oldest"])}</option>'
+        f'<option value="az" data-i18n="filter.sort.az">'
+        f'{esc(s_dl["filter.sort.az"])}</option></select></label>'
+    )
+    if hidden:
+        ctl += (
+            f'<label class="tf"><span data-i18n="table.rows">Rows</span>'
+            f'<select class="tsel tselrows" data-i18n-title="table.rows" '
+            f'title="{esc(s_dl["table.rows"])}">{rows_opts}</select></label>'
             f'<button type="button" class="btn tall" data-more>'
             f'<span data-tpl="table.showall" data-v-n="{hidden}">Show all {hidden}</span>'
-            f"</button></div>"
+            f'</button>'
         )
-    else:
-        ctl = ""
+    # The per-table filter count lives in the control bar; the page-level search
+    # box keeps its own count in the header.
+    ctl += (
+        f'<span class="tcount" data-tcount role="status" aria-live="polite"></span>'
+        f'<button type="button" class="btn tall tclear" data-fclear '
+        f'data-i18n="filter.clear">Reset</button>'
+        f"</div>"
+        f'<p class="tnone" data-fnone data-i18n="filter.none" hidden>'
+        f'{esc(s_dl["filter.none"])}</p>'
+    )
 
     all_attr = "" if hidden else " data-all"
     return (
@@ -1498,6 +1880,7 @@ def _table(models: list[dict], preset: Preset, limit: int | None = None) -> str:
         '<th class="num" data-i18n="th.price" data-sort="price">$/1M</th>'
         '<th class="num" data-i18n="th.eff" data-sort="eff">Eff.</th>'
         '<th class="num" data-i18n="th.cov" data-sort="cov">Cov.</th>'
+        '<th class="num rel" data-i18n="th.released" data-sort="date">Released</th>'
         f'</tr></thead><tbody>{body}</tbody></table></div>'
         f'<p class="lede"><span data-i18n="{sort_key}">Sorted.</span> '
         f'<span data-i18n="panel.cov_note">Cov. is coverage.</span> '
@@ -1832,25 +2215,59 @@ def render(
     # a pinned model is meant to be visible across every view — that is the
     # whole point of pinning one.
     #
-    # The add-by-name list is built in JS from the table rows, not server-side:
-    # every model already appears there with its display name, and shipping 389
-    # <option> elements duplicated that text for ~19 KB of the gzipped payload.
+    # The picker list is rendered server-side but grouped by vendor with the
+    # newest release first inside each group. That ordering is the useful one
+    # here: a vendor's current line is what you are choosing between, and the
+    # superseded entries are already filtered off the board by curate. The list
+    # is collapsed until the search box is focused, so 290 rows cost nothing on
+    # first paint.
+    order = {}
+    for m in models:
+        order.setdefault(m["family"], []).append(m)
+    groups = []
+    for fam in sorted(order, key=lambda f: (-len(order[f]), f.lower())):
+        rows = sorted(order[fam], key=lambda m: m.get("release_date") or "",
+                      reverse=True)
+        # The picker items carry no data-search attribute: the haystack is just
+        # the item's own text plus its group's family, which the filter reads
+        # from the DOM. Storing it again on 374 buttons cost ~4 KB gzipped for
+        # nothing.
+        items = "".join(
+            f'<button type="button" class="pk-item" data-model="{esc(m["canonical"])}" '
+            f'aria-pressed="false">'
+            f'<span class="pi-n">{esc(m["name"])}</span>'
+            f'<span class="pi-d">{esc(_fmt_date(m.get("release_date") or ""))}</span>'
+            f"</button>"
+            for m in rows
+        )
+        groups.append(
+            f'<div class="pk-group" data-family="{esc(fam)}">'
+            f'<div class="pg-head"><span class="pg-n">{esc(fam)}</span>'
+            f'<span class="pg-c">{len(rows)}</span></div>{items}</div>'
+        )
     picker = (
         f'<section class="picker" aria-label="{esc(s["pick.aria"])}">'
         f'<div class="pk-head">'
         f'<span class="pk-title" data-i18n="pick.title">Compare</span>'
         f'<span class="pk-count" id="pkcount" role="status" aria-live="polite"></span>'
         f'<span class="spacer"></span>'
-        f'<label class="pk-add">'
-        f'<input id="pkinput" list="pklist" type="text" autocomplete="off" '
-        f'placeholder="{esc(s["pick.add.ph"])}" data-i18n-ph="pick.add.ph">'
-        f'<datalist id="pklist"></datalist>'
+        f'<label class="pk-search">'
+        f'<input id="pkinput" type="search" autocomplete="off" '
+        f'placeholder="{esc(s["pick.search.ph"])}" data-i18n-ph="pick.search.ph" '
+        f'aria-label="{esc(s["pick.search.ph"])}">'
         f'</label>'
         f'<button type="button" class="btn" id="pkclear" '
         f'data-i18n="pick.clear">Clear</button>'
         f"</div>"
         f'<p class="pk-hint" data-i18n="pick.hint">{esc(s["pick.hint"])}</p>'
         f'<div class="pk-chips" id="pkchips"></div>'
+        f'<div class="pk-list" id="pklist" hidden role="listbox" '
+        f'aria-label="{esc(s["pick.search.ph"])}">'
+        f'<p class="pk-note" data-i18n="pick.group_hint">{esc(s["pick.group_hint"])}</p>'
+        f'{"".join(groups)}'
+        f'<p class="pk-none" id="pknone" data-i18n="pick.noresults" hidden>'
+        f'{esc(s["pick.noresults"])}</p>'
+        f"</div>"
         f"</section>"
     )
 
@@ -1894,6 +2311,23 @@ def render(
 
     # Serialise the translation table safely for inline <script>.
     payload = js_payload().replace("</", "<\\/")
+
+    # Per-view scores for every model, keyed by canonical slug, so the client can
+    # add a pinned model to a chart even when that model is gated out of the
+    # view's own table. A model can be missing from a table (below the coverage
+    # floor, or unpriced on an efficiency view) while still having a perfectly
+    # good score in another view, and "add it to the chart" has to work then too.
+    # ~4 KB gzipped, and it removes any need for the client to parse table cells.
+    view_keys = list(presets.keys())
+    score_map = {}
+    for m in models:
+        vals = [m["scores"].get(k) for k in view_keys]
+        if all(v is None for v in vals):
+            continue
+        score_map[m["canonical"]] = [
+            None if v is None else round(v, 1) for v in vals
+        ]
+    scores_json = json.dumps(score_map, separators=(",", ":")).replace("</", "<\\/")
 
     return f"""<!DOCTYPE html>
 <html lang="{HTML_LANG[DEFAULT_LANG]}">
@@ -1987,6 +2421,8 @@ var __LANGS__ = {json.dumps(list(LANGS))};
 var __DEFAULT_LANG__ = {json.dumps(DEFAULT_LANG)};
 var __LANG_LABEL__ = {json.dumps(LANG_LABEL, ensure_ascii=False)};
 var __HTML_LANG__ = {json.dumps(HTML_LANG)};
+var __VIEWS__ = {json.dumps(view_keys)};
+var __SCORES__ = {scores_json};
 {JS}
 </script>
 </body>

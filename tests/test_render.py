@@ -8,6 +8,7 @@ rows were silently missing. None of that breaks a score, so none of it could be
 caught by testing the maths.
 """
 
+import json
 import re
 import unittest
 
@@ -17,7 +18,8 @@ from scipick.render import _frontier, _short_name, render
 
 
 def model(name, capability=50.0, coding=50.0, longcontext=50.0, price=5.0,
-          scicode=0.5, lcr=0.5, hle=0.5, aaii=50.0, terminal=0.5):
+          scicode=0.5, lcr=0.5, hle=0.5, aaii=50.0, terminal=0.5,
+          released="2025-01-01"):
     """Build one collected model in the shape ``collect()`` produces.
 
     Scores and efficiencies are derived from the metrics the way the pipeline
@@ -52,6 +54,7 @@ def model(name, capability=50.0, coding=50.0, longcontext=50.0, price=5.0,
         "coverage": coverage,
         "efficiency": effs,
         "pricing": {"blended": price, "input": price, "output": price},
+        "release_date": released,
         "available_locally": False,
         "sources": [],
         "variants": [],
@@ -546,6 +549,142 @@ class SelectionTest(unittest.TestCase):
         self.assertRegex(html, r"\.fdot\.pinned[^{]*\{[^}]*stroke:var\(--pin\)")
 
 
+class FilterAndOrderTest(unittest.TestCase):
+    """The filter bar, the ordering modes, and the release-date column."""
+
+    def setUp(self):
+        self.html = render(board(), DEFAULT_PRESETS, limit=60)
+        self.body = panels(self.html)["capability"]
+
+    def test_filter_bar_is_always_present(self):
+        """Filters are independent of the row cap, so they always render."""
+        for lim in (1, 60, 0, None):
+            with self.subTest(limit=lim):
+                body = panels(render(board(), DEFAULT_PRESETS,
+                                     limit=lim))["capability"]
+                self.assertIn("fsel", body)
+                self.assertIn("ssel", body)
+
+    def test_ordering_modes_are_offered(self):
+        for mode in ("rank", "newest", "oldest", "az"):
+            with self.subTest(mode=mode):
+                self.assertIn(f'value="{mode}"', self.body)
+
+    def test_family_options_come_from_this_views_rows(self):
+        """A family that would return nothing must not be offered."""
+        sel = re.search(r'class="tsel fsel"[^>]*>(.*?)</select>',
+                        self.body, re.S).group(1)
+        # The sentinel option carries a data-i18n attribute, so match on the
+        # value attribute alone rather than assuming `value=""` precedes `>`.
+        fams = set(re.findall(r'<option value="([^"]*)"', sel))
+        self.assertIn("", fams)              # the "all families" sentinel
+        present = set(re.findall(r'data-k-family="([^"]+)"', self.body))
+        # Options are display-cased, rows are lowercased; compare case-folded.
+        self.assertEqual({f.lower() for f in fams if f}, present)
+
+    def test_date_column_is_not_sorted_numerically(self):
+        """parseFloat("2026-09-02") is 2026, which collapses a year into a tie.
+
+        The date column therefore has to be in the text-sorted set, or every
+        same-year date sorts equal and the column is useless.
+        """
+        self.assertRegex(self.html, r"TEXT_COLS\s*=\s*\{[^}]*date:\s*1")
+
+    def test_newest_and_oldest_are_opposites(self):
+        """A sign error made both modes sort oldest-first.
+
+        That is invisible in a screenshot — the rows are still grouped by vendor
+        and dated — so it needs an assertion on the comparator's direction, not
+        on a rendered order the unit test cannot produce.
+        """
+        m = re.search(r"var dir = \(mode === 'newest'\) \? (-?\d+) : (-?\d+);",
+                      self.html)
+        self.assertIsNotNone(m, "newest/oldest direction constant not found")
+        self.assertEqual(m.group(1), "-1")   # newest => descending dates
+        self.assertEqual(m.group(2), "1")
+        self.assertIn("return da < db ? -dir : (da > db ? dir : 0);", self.html)
+
+    def test_release_date_is_rendered_and_sortable(self):
+        self.assertIn('data-sort="date"', self.body)
+        self.assertIn("data-k-date=", self.body)
+        self.assertIn('data-i18n="th.released"', self.body)
+
+    def test_filter_count_only_shows_while_filtering(self):
+        # An empty span is the "not filtering" state; the JS fills it otherwise.
+        self.assertIn("data-tcount", self.body)
+        self.assertIn("filter.count", self.html)
+
+    def test_nothing_matches_message_exists(self):
+        self.assertIn("data-fnone", self.body)
+        self.assertIn("filter.none", self.html)
+
+    def test_reset_control_exists(self):
+        self.assertIn("data-fclear", self.body)
+
+
+class PickerTest(unittest.TestCase):
+    """The searchable picker, grouped by vendor and newest-first within."""
+
+    def setUp(self):
+        self.html = render(board(), DEFAULT_PRESETS, limit=60)
+        m = re.search(r'<div class="pk-list".*?</section>', self.html, re.S)
+        self.list = m.group(0) if m else ""
+
+    def test_list_exists_and_starts_collapsed(self):
+        self.assertTrue(self.list)
+        self.assertIn('id="pklist" hidden', self.html)
+
+    def test_list_is_grouped_by_family(self):
+        self.assertEqual(self.list.count('class="pk-group"'),
+                         len({m["family"] for m in board()}))
+
+    def test_every_board_model_is_offered(self):
+        """Including models gated out of this view's table.
+
+        The real capability table holds 290 of 374 board models; the picker must
+        offer all of them, because pinning one is how you surface a model the
+        view's own gate excluded.
+        """
+        self.assertEqual(self.list.count('class="pk-item"'), len(board()))
+
+    def test_groups_are_newest_first(self):
+        groups = re.findall(
+            r'<div class="pk-group"[^>]*>(.*?)(?=<div class="pk-group"|$)',
+            self.list, re.S)
+        self.assertTrue(groups)
+        for g in groups:
+            dates = re.findall(r'<span class="pi-d">([^<]+)</span>', g)
+            dated = [d for d in dates if d != "—"]
+            with self.subTest(group=g[:50]):
+                self.assertEqual(dated, sorted(dated, reverse=True), dates)
+
+    def test_items_do_not_duplicate_the_search_haystack(self):
+        """The filter reads the item's own text, so no data-search attribute."""
+        self.assertNotIn("data-search=", self.list)
+        self.assertIn("textContent.toLowerCase()", self.html)
+
+    def test_no_results_message_exists(self):
+        self.assertIn('id="pknone"', self.list)
+
+    def test_pinned_extra_bar_is_marked_not_disguised(self):
+        """A user-added bar must not look like part of the ranking.
+
+        It may also be a model the chart's own coverage floor excludes, so
+        drawing it identically would make the chart claim a comparison it never
+        made.
+        """
+        self.assertIn(".col.extra .bx", self.html)
+        self.assertIn("border:1px dashed var(--pin)", self.html)
+        self.assertIn("bars.added", self.html)
+
+    def test_scores_payload_covers_every_view(self):
+        """The client needs each view's score to add a bar in any view."""
+        m = re.search(r"var __VIEWS__ = (\[[^\]]*\]);", self.html)
+        self.assertIsNotNone(m)
+        self.assertEqual(json.loads(m.group(1)), list(DEFAULT_PRESETS))
+        self.assertIn("var __SCORES__ = {", self.html)
+
+
 class FullRankingTest(unittest.TestCase):
     def setUp(self):
         self.html = render(board(), DEFAULT_PRESETS, limit=2)
@@ -566,11 +705,14 @@ class FullRankingTest(unittest.TestCase):
         self.assertEqual(len(re.findall(r'<tr data-name="[^"]*" class="deep"',
                                        body)), len(board()) - 2)
 
-    def test_controls_present_only_when_rows_are_hidden(self):
+    def test_expand_control_present_only_when_rows_are_hidden(self):
+        # The filter bar is always present — filtering has nothing to do with the
+        # row cap — but "Show all" must not appear when nothing is hidden.
         self.assertIn('data-more', self.panels["capability"])
-        # A limit at or above the board size hides nothing, so no control.
         full = render(board(), DEFAULT_PRESETS, limit=99)
-        self.assertNotIn('class="tctl"', panels(full)["capability"])
+        body = panels(full)["capability"]
+        self.assertIn('class="tctl"', body)
+        self.assertNotIn('data-more', body)
 
     def test_no_cap_shows_every_row(self):
         """limit=0 and limit=None both mean "no cap".
@@ -583,19 +725,23 @@ class FullRankingTest(unittest.TestCase):
                 html = render(board(), DEFAULT_PRESETS, limit=lim)
                 body = panels(html)["capability"]
                 self.assertEqual(body.count('class="deep"'), 0)
-                self.assertNotIn('class="tctl"', body)
+                self.assertNotIn('data-more', body)
                 self.assertEqual(len(re.findall(r'<tr data-name=', body)),
                                  len(board()))
 
     def test_low_limit_keeps_a_way_to_reveal_rows(self):
         html = render(board(), DEFAULT_PRESETS, limit=1)
         body = panels(html)["capability"]
-        self.assertIn('class="tctl"', body)
+        self.assertIn('data-more', body)
         self.assertGreater(body.count('class="deep"'), 0)
 
     def test_row_caps_never_exceed_the_board(self):
         body = self.panels["capability"]
-        caps = [int(v) for v in re.findall(r'<option value="(\d+)"', body)]
+        # Only the rows control's options; the family/order selects use values
+        # that are not numbers.
+        rows_sel = re.search(r'class="tsel tselrows"[^>]*>(.*?)</select>',
+                             body, re.S).group(1)
+        caps = [int(v) for v in re.findall(r'<option value="(\d+)"', rows_sel)]
         # 0 is the "All" sentinel.
         for c in caps:
             if c:

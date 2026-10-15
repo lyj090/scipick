@@ -73,13 +73,32 @@ STRINGS: dict[str, dict[str, str]] = {
         "th.price": "$/1M",
         "th.eff": "Eff.",
         "th.cov": "Cov.",
+        "th.released": "Released",
         "row.local": "local",
 
         # Full-ranking controls
         "table.showall": "Show all {n}",
         "table.rows": "Rows",
         "table.all": "All",
-        "table.hint": "Click any column heading to sort. Use Rows to change how many are shown.",
+        "table.hint": (
+            "Click any column heading to sort. Use Rows to change how many are "
+            "shown."
+        ),
+
+        # Filters
+        "filter.family": "Family",
+        "filter.all_families": "All families",
+        "filter.sort": "Order",
+        "filter.sort.rank": "By rank in this view",
+        "filter.sort.newest": "Newest first, within family",
+        "filter.sort.oldest": "Oldest first, within family",
+        "filter.sort.az": "Name A–Z",
+        "filter.query.ph": "Filter by name, family, or vendor…",
+        "filter.count": "{shown} of {total}",
+        "filter.none": "Nothing matches these filters.",
+        "filter.clear": "Reset",
+        "filter.active": "{n} filter(s) active",
+        "group.stale": "Released more than two years ago",
 
         # Methodology
         "method.title": "Weighting",
@@ -166,13 +185,29 @@ STRINGS: dict[str, dict[str, str]] = {
             "Scores are shown from {floor} upward; the axis does not start at 0."
         ),
         "bars.none": "No model in this view has a usable score.",
+        "bars.notshown": "not in this view's chart",
+        "bars.added": (
+            "This chart shows the top {n} by score. The dashed bars were added "
+            "by you and are not part of that ranking."
+        ),
+        "bars.showmore": "Show",
+        "bars.onlytop": (
+            "The chart shows the top {n} by score. A pinned model outside it is "
+            "added to the chart when there is room."
+        ),
 
         # Model selection (shared by both charts and the table)
         "pick.title": "Compare",
         "pick.hint": (
-            "Click a bar, a point, or a row to pin a model. Pinned models are "
-            "highlighted in every view and listed here."
+            "Search above to pin a model. Pinned models are highlighted on every "
+            "chart in every view, and added to the bar chart."
         ),
+        "pick.missing": "No model with that name in this view.",
+        "pick.search.ph": "Search models…",
+        "pick.noresults": "No model matches that search.",
+        "pick.group_hint": "Grouped by vendor, newest first.",
+        "pick.added": "in the table",
+        "pick.released": "Released",
         "pick.empty": "Nothing pinned yet.",
         "pick.clear": "Clear",
         "pick.remove": "Unpin",
@@ -246,13 +281,27 @@ STRINGS: dict[str, dict[str, str]] = {
         "th.price": "$/1M",
         "th.eff": "效率",
         "th.cov": "覆盖",
+        "th.released": "发布",
         "row.local": "本地",
 
         "table.showall": "显示全部 {n} 个",
         "table.rows": "行数",
         "table.all": "全部",
         "table.hint": "点击任意列标题即可排序；用「行数」调整显示条数。",
-        "row.local": "本地可调",
+
+        "filter.family": "厂商",
+        "filter.all_families": "全部厂商",
+        "filter.sort": "排序",
+        "filter.sort.rank": "按本视图排名",
+        "filter.sort.newest": "同厂商内，新的在前",
+        "filter.sort.oldest": "同厂商内，旧的在前",
+        "filter.sort.az": "按名称 A–Z",
+        "filter.query.ph": "按名称、厂商或家族筛选…",
+        "filter.count": "共 {total} 个，显示 {shown} 个",
+        "filter.none": "没有符合当前筛选条件的模型。",
+        "filter.clear": "重置",
+        "filter.active": "已启用 {n} 项筛选",
+        "group.stale": "发布已超过两年",
 
         "method.title": "权重",
         "method.desc": (
@@ -323,9 +372,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "bars.axis": "加权得分",
         "bars.truncated": "得分自 {floor} 起显示，纵轴不从 0 开始。",
         "bars.none": "本视图没有可用得分的模型。",
+        "bars.notshown": "不在本视图图表中",
+        "bars.added": "本图显示得分前 {n} 名。虚线柱子是你手动加入的，不属于该排名。",
+        "bars.showmore": "显示",
+        "bars.onlytop": "图表显示得分前 {n} 名；被固定但不在其中的模型，在有空位时会加入图表。",
 
         "pick.title": "对比",
-        "pick.hint": "点击柱子、散点或表格行即可固定一个模型；固定的模型会在所有视图中高亮，并列在此处。",
+        "pick.hint": "用上方的搜索框固定模型。固定的模型会在所有视图的图表中高亮，并加入柱状图。",
+        "pick.missing": "本视图中没有这个名称的模型。",
+        "pick.search.ph": "搜索模型…",
+        "pick.noresults": "没有匹配的模型。",
+        "pick.group_hint": "按厂商分组，新的在前。",
+        "pick.added": "已在表格中",
+        "pick.released": "发布",
         "pick.empty": "尚未固定任何模型。",
         "pick.clear": "清空",
         "pick.remove": "取消固定",

@@ -60,12 +60,23 @@ the top three in that view — five to nine of the thirty-three on the board.
 Colouring the rest would need a palette nobody can tell apart; leaving them grey
 is also the truthful reading, because a grey dot is not in contention.
 
-**Compare.** Click a bar, a scatter point, or a table row to pin a model. Pinned
-models are highlighted across *every* view and collected in the tray at the top,
-so the model you are considering stays lit while you move between weightings.
-Up to five at a time; the selection survives a reload. There is also an
-add-by-name box, which is the practical way to find a model among 290 when you
-already know which one you want.
+**Filtering and ordering.** Each ranking has its own family filter and a search
+box. Order is switchable: rank in this view, name A–Z, or *newest first within
+family* — which groups by vendor and then by release date, because comparing a
+vendor's own line against itself is what you do when deciding whether to
+upgrade. A straight date sort would interleave every vendor by recency instead.
+Every row carries its release date, and the column is sortable.
+
+**Compare.** Search for a model to pin it; pinned models are highlighted across
+*every* view — bar chart, scatter, and table — and collected in the tray at the
+top, so the model you are considering stays lit while you move between
+weightings. Up to five at a time, and the selection survives a reload.
+
+If a pinned model is not in the bar chart's top twenty, it is added as a dashed
+bar with the note explaining that it is not part of the ranking. That matters
+because the picker offers all 374 board models while a view's table may hold
+fewer — a model can be below the coverage floor in one view and perfectly
+rankable in another, and pinning it is how you see that.
 
 **Full ranking.** Sortable by any column, and collapsed to the first screen by
 default. Every row ships in the file, so search and sort cover the whole set and
