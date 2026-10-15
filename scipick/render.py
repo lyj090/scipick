@@ -54,7 +54,8 @@ border-radius:8px 8px 0 0;position:relative;top:1px}
 .card .k{font-size:12.5px;color:var(--dim);font-weight:600}
 .card .v{font-size:25px;font-weight:700;margin-top:9px;letter-spacing:-.5px;
 font-variant-numeric:tabular-nums}
-.card .v.sm{font-size:15px;font-family:var(--mono);word-break:break-all}
+/* Long model names must wrap at spaces, not mid-word ("Fallbac/k)"). */
+.card .v.sm{font-size:15px;font-family:var(--mono);overflow-wrap:anywhere;line-height:1.4}
 .card .n{color:var(--dim);font-size:12px;margin-top:4px}
 
 table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}
@@ -311,11 +312,17 @@ def render(
     generated = generated or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     keys = list(presets.keys())
-    tabs = "".join(
-        f'<button class="tab" data-key="{esc(k)}" role="tab" aria-selected="false">'
-        f'{esc(presets[k].label)}<span class="k">{esc(k)}</span></button>'
-        for k in keys
-    )
+
+    def _tab(key: str) -> str:
+        preset = presets[key]
+        # Only show the raw key when it adds information. Labelling the button
+        # "Capability capability" is noise.
+        suffix = (f'<span class="k">{esc(key)}</span>'
+                  if key.lower() != preset.label.lower() else "")
+        return (f'<button class="tab" data-key="{esc(key)}" role="tab" '
+                f'aria-selected="false">{esc(preset.label)}{suffix}</button>')
+
+    tabs = "".join(_tab(k) for k in keys)
     panels = "".join(_panel(models, presets[k], first=(i == 0)) for i, k in enumerate(keys))
 
     # Weight table so the methodology is inspectable without reading source.
