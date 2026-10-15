@@ -123,6 +123,47 @@ class CollectTest(unittest.TestCase):
                 self.assertIn(key, m["scores"])
                 self.assertIn(key, m["efficiency"])
 
+    def test_reported_counts_reconcile_with_the_board(self):
+        """The "Data" line subtracts four counts and must land on the board size.
+
+        It used to name only the superseded and vendor drops, so the stated
+        arithmetic came out 225 rows short on the live board: two stages (models
+        with no usable benchmark, and entries that collapse to the same
+        canonical model) dropped rows without being counted. A page whose
+        selling point is that its rules are stated cannot have a visible sum
+        that does not add up.
+        """
+        aa_rows = self.aa + [
+            # Same model at another reasoning effort: collapses to one row.
+            aa("GPT-5 (Low)", "gpt-5-low", scicode=0.5,
+               artificial_analysis_intelligence_index=68.0),
+            # Nothing to rank on.
+            aa("Also Unrankable", "also-unrankable", pricing={}),
+        ]
+        board, _, meta = collect(aa_rows, {}, DEFAULT_PRESETS)
+        total = (meta["board_size"] + meta["unrankable_removed"]
+                 + meta["duplicate_removed"] + meta["superseded_removed"]
+                 + meta["vendors_removed"])
+        self.assertEqual(total, meta["aa_total"],
+                         f"counts do not add up: {meta}")
+        self.assertEqual(meta["unrankable_removed"], 2)
+        self.assertEqual(meta["duplicate_removed"], 1)
+        self.assertEqual(meta["board_size"], len(board))
+
+    def test_counts_stay_consistent_with_the_global_filters_off(self):
+        """With both global filters disabled, only the two silent stages drop."""
+        aa_rows = self.aa + [
+            aa("GPT-5 (Low)", "gpt-5-low", scicode=0.5,
+               artificial_analysis_intelligence_index=68.0),
+        ]
+        board, _, meta = collect(aa_rows, {}, DEFAULT_PRESETS,
+                                 latest=False, mainstream_only=False)
+        self.assertEqual(meta["superseded_removed"], 0)
+        self.assertEqual(meta["vendors_removed"], 0)
+        self.assertEqual(meta["board_size"] + meta["unrankable_removed"]
+                         + meta["duplicate_removed"], meta["aa_total"])
+        self.assertEqual(meta["board_size"], len(board))
+
 
 if __name__ == "__main__":
     unittest.main()

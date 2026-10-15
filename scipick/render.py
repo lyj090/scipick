@@ -2611,17 +2611,15 @@ def render(
   <h2 data-i18n="meta.title">Data</h2>
   <p class="lede" data-tpl="meta.selection"
      data-v-aa="{meta.get('aa_total', 0)}"
+     data-v-unrankable="{meta.get('unrankable_removed', 0)}"
+     data-v-duplicate="{meta.get('duplicate_removed', 0)}"
      data-v-superseded="{meta.get('superseded_removed', 0)}"
-     data-v-vendors="{meta.get('vendors_removed', 0)}">
-    Selected from {meta.get('aa_total', 0)} models: latest generation per product line,
-    mainstream vendors only.</p>
+     data-v-vendors="{meta.get('vendors_removed', 0)}"
+     data-v-board="{meta.get('board_size', 0)}">
+    {meta.get('aa_total', 0)} models fetched, {meta.get('board_size', 0)} on the board.</p>
   <footer>
     <span><a href="https://artificialanalysis.ai">Artificial Analysis</a>
-      <span data-i18n="meta.aa">data API</span> &mdash;
-      <span data-tpl="meta.fetched" data-v-n="{meta.get('aa_total', 0)}">
-        {meta.get('aa_total', 0)} models fetched</span>,
-      <span data-tpl="meta.rankable" data-v-n="{meta.get('board_size', 0)}">
-        {meta.get('board_size', 0)} rankable</span></span>
+      <span data-i18n="meta.aa">data API</span></span>
     {local_note}
     <span class="sep">·</span>
     <span data-i18n="meta.byline">Scoring and presentation by scipick.</span>

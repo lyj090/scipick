@@ -182,14 +182,25 @@ def collect(
     local_models = local_models or {}
 
     # Every AA model is a candidate row; local availability is an annotation.
+    # Two stages drop rows here without being named in the filter table the page
+    # prints, so both are counted: an entry with neither SciCode nor the
+    # intelligence index has nothing to rank on, and several API entries collapse
+    # to one canonical model (the same model at different reasoning efforts).
+    # Without these counts the page's "selected from N" arithmetic does not add
+    # up, which on a page whose selling point is stated rules is worse than not
+    # stating them.
     board: dict[str, dict] = {}
+    unrankable = 0
+    duplicates = 0
     for m in aa_models:
         ev = m.get("evaluations") or {}
         if ev.get("scicode") is None and ev.get("artificial_analysis_intelligence_index") is None:
-            continue  # nothing to rank on
+            unrankable += 1
+            continue
         rec = _record(m, presets)
         key = rec["canonical"] or rec["name"].lower()
         if key in board:
+            duplicates += 1
             continue
         board[key] = rec
 
@@ -231,6 +242,8 @@ def collect(
         "board_size": len(out),
         "superseded_removed": superseded,
         "vendors_removed": vendors_removed,
+        "unrankable_removed": unrankable,
+        "duplicate_removed": duplicates,
         "vendors_filtered": mainstream_only,
         "latest_only": latest,
         "local_sources": sorted(local_models.keys()),

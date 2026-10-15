@@ -119,9 +119,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
 
         "meta.title": "Data",
-        "meta.aa": "Artificial Analysis data API",
-        "meta.fetched": "{n} models fetched",
-        "meta.rankable": "{n} rankable",
+        "meta.aa": "data API",
         "meta.localgateway": "Local gateway",
         "meta.byline": "Scoring and presentation by scipick.",
         "meta.license": "MIT licensed",
@@ -202,9 +200,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "pick.aria": "Pinned models",
         "meta.source_code": "Source",
         "meta.selection": (
-            "Selected from {aa} models: latest generation per product line, "
-            "mainstream vendors only ({superseded} superseded and {vendors} "
-            "non-allowlisted rows excluded)."
+            "{aa} models fetched. {unrankable} carry none of the weighted "
+            "benchmarks, {duplicate} duplicate another entry, {superseded} are "
+            "superseded generations, and {vendors} come from creators outside "
+            "the allowlist, leaving {board} on the board."
         ),
 
         # Preset descriptions (built-in presets only; custom presets from the
@@ -305,9 +304,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
 
         "meta.title": "数据",
-        "meta.aa": "Artificial Analysis 数据 API",
-        "meta.fetched": "拉取 {n} 个模型",
-        "meta.rankable": "可排名 {n} 个",
+        "meta.aa": "数据 API",
         "meta.localgateway": "本地网关",
         "meta.byline": "评分与呈现由 scipick 完成。",
         "meta.license": "MIT 许可",
@@ -366,8 +363,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "pick.aria": "已固定的模型",
         "meta.source_code": "源码",
         "meta.selection": (
-            "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"
-            "（已排除 {superseded} 条旧代次、{vendors} 条非主流厂商）。"
+            "共拉取 {aa} 个模型。其中 {unrankable} 个没有任何加权基准，"
+            "{duplicate} 个与其它条目重复，{superseded} 个是旧代次，"
+            "{vendors} 个来自白名单以外的厂商，最终入榜 {board} 个。"
         ),
 
         "preset.capability.label": "综合能力",
