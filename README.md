@@ -45,6 +45,11 @@ dominated — nothing is both cheaper and better. Everything below it is. This i
 the view that makes the trade-off legible in a way a ranked list cannot, and it
 is why the value gate is a rule rather than a sort order.
 
+Dots are coloured by vendor for the vendors that actually reach the frontier or
+the top three in that view — five to nine of the thirty-three on the board.
+Colouring the rest would need a palette nobody can tell apart; leaving them grey
+is also the truthful reading, because a grey dot is not in contention.
+
 **Full ranking.** Sortable by any column, and collapsed to the first screen by
 default. Every row ships in the file, so search and sort cover the whole set and
 "Show all" reveals the rest in place. Sorting reads structured keys rather than
