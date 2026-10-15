@@ -45,33 +45,28 @@ STRINGS: dict[str, dict[str, str]] = {
         "card.median.note": "median score in this view",
         "card.priced": "Priced models",
         "card.priced.note": "models with a published price",
-        "card.best": "Best score",
-        "card.best.note": "{score} pts",
-        "card.value": "Best value",
-        "card.value.note": "{eff} pts/$",
-        "card.none": "no data",
+        "card.unpriced": "No price",
+        "card.unpriced.note": "excluded: no published price",
         "card.noprice": "no published price",
-        "card.points": "{score} pts",
 
         # Panels
-        "panel.top": "Top {n}",
         "panel.full": "Full ranking",
         "panel.empty": "No models matched this view.",
         "panel.sorted.score": "Sorted by weighted score.",
         "panel.sorted.eff": "Sorted by ability per dollar.",
         "panel.cov_note": "Cov. is the share of this view's weight that had data.",
-        "table.truncated": (
-            "Showing the top {shown} of {total} models. "
-            "The JSON export contains every model."
-        ),
         "panel.floor": (
             "{n} further model(s) have a partial score here but fall below the "
             "{pct} coverage floor and are not ranked. Their data covers too few of "
             "the weighted benchmarks to place them meaningfully against the rest."
         ),
+        "panel.noprice": (
+            "{n} model(s) score in this view but publish no price, so they cannot "
+            "be ranked by ability per dollar and are excluded from the table. "
+            "They are counted here so the gap in the ranking is visible."
+        ),
 
         # Table
-        "th.rank": "#",
         "th.model": "Model",
         "th.family": "Family",
         "th.score": "Score",
@@ -79,6 +74,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "th.eff": "Eff.",
         "th.cov": "Cov.",
         "row.local": "local",
+
+        # Full-ranking controls
+        "table.showall": "Show all {n}",
+        "table.rows": "Rows",
+        "table.all": "All",
+        "table.hint": "Click any column heading to sort. Use Rows to change how many are shown.",
 
         # Methodology
         "method.title": "Weighting",
@@ -106,8 +107,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.fetched": "{n} models fetched",
         "meta.rankable": "{n} rankable",
         "meta.localgateway": "Local gateway",
-        "meta.sources": "Reachable sources",
-        "meta.none": "not configured",
         "meta.byline": "Scoring and presentation by scipick.",
         "meta.license": "MIT licensed",
         "bench.title": "Benchmarks",
@@ -125,17 +124,33 @@ STRINGS: dict[str, dict[str, str]] = {
         "bench.index": "Aggregate reasoning index across many evaluations.",
         "bench.lcr": "Retrieving and reasoning over long inputs, such as whole repositories.",
         "bench.terminal": "Agentic execution in a real shell — multi-step command-line tasks.",
-        "bench.coverage.note": "{n} of {total} models on the board report this benchmark.",
         "method.note": (
             "Weights are relative and renormalised per model, so a missing "
             "benchmark never counts as a zero score."
         ),
-        "podium.ability": "Top 3 · Ability",
-        "podium.value": "Top 3 · Value",
-        "podium.ability.sub": "Highest weighted score. Price ignored.",
-        "podium.value.sub": "Best score per dollar, among models within reach of the frontier.",
+        # Each view's podium names its own leaders, so switching tabs changes
+        # what you see. The secondary line names the leader on the *other*
+        # axis, which keeps both questions answered per view without repeating
+        # the same three names under a different heading.
+        "podium.by.score": "Top 3 by weighted score",
+        "podium.by.value": "Top 3 by ability per dollar",
+        "podium.leader.value": "Best value here",
+        "podium.leader.score": "Highest score here",
         "podium.per_dollar": "pts/$",
-        "podium.more": "See all {n} ranked models",
+
+        # Frontier chart
+        "frontier.title": "Score vs price",
+        "frontier.desc": (
+            "Every priced model in this view. The line is the efficient frontier: "
+            "the best score available at or below each price. Points on it are "
+            "the ones that are not dominated on both axes at once."
+        ),
+        "frontier.axis.price": "Blended price, $/1M tokens (log scale)",
+        "frontier.axis.score": "Weighted score",
+        "frontier.legend.frontier": "efficient frontier",
+        "frontier.legend.other": "other models",
+        "frontier.legend.top": "top 3",
+        "frontier.nopriced": "No model in this view has a published price.",
         "meta.source_code": "Source",
         "meta.selection": (
             "Selected from {aa} models: latest generation per product line, "
@@ -145,6 +160,10 @@ STRINGS: dict[str, dict[str, str]] = {
 
         # Preset descriptions (built-in presets only; custom presets from the
         # config file are shown as written by their author).
+        "preset.capability.label": "Capability",
+        "preset.value.label": "Value",
+        "preset.coding.label": "Coding",
+        "preset.longcontext.label": "Long context",
         "preset.capability.desc": "Absolute ability, price ignored.",
         "preset.value.desc": "Ability per dollar, among models within reach of the frontier.",
         "preset.coding.desc": "Weighted toward code generation and terminal execution.",
@@ -173,33 +192,36 @@ STRINGS: dict[str, dict[str, str]] = {
         "card.median.note": "该视图下的得分中位数",
         "card.priced": "有定价模型",
         "card.priced.note": "公布了价格的模型数",
-        "card.best": "最高分",
-        "card.best.note": "{score} 分",
-        "card.value": "最佳性价比",
-        "card.value.note": "{eff} 分/美元",
-        "card.none": "无数据",
+        "card.unpriced": "无价格",
+        "card.unpriced.note": "因未公布价格而排除",
         "card.noprice": "未公布价格",
-        "card.points": "{score} 分",
 
-        "panel.top": "前 {n} 名",
         "panel.full": "完整排名",
         "panel.empty": "该视图下没有符合条件的模型。",
         "panel.sorted.score": "按加权得分排序。",
         "panel.sorted.eff": "按每美元能力排序。",
         "panel.cov_note": "Cov. 表示该视图权重中真正有数据的比例。",
-        "table.truncated": "共 {total} 个模型，此处显示前 {shown} 名。JSON 导出包含全部模型。",
         "panel.floor": (
             "另有 {n} 个模型在该视图下有部分得分，但低于 {pct} 的覆盖率下限，"
             "未参与排名。它们的数据覆盖的加权基准过少，与其他模型不具可比性。"
         ),
+        "panel.noprice": (
+            "另有 {n} 个模型在该视图下有得分，但没有公布价格，无法按每美元"
+            "能力排名，因此未列入表格。此处给出数量，让排名的缺口是可见的。"
+        ),
 
-        "th.rank": "#",
         "th.model": "模型",
         "th.family": "家族",
         "th.score": "得分",
         "th.price": "$/1M",
         "th.eff": "效率",
         "th.cov": "覆盖",
+        "row.local": "本地",
+
+        "table.showall": "显示全部 {n} 个",
+        "table.rows": "行数",
+        "table.all": "全部",
+        "table.hint": "点击任意列标题即可排序；用「行数」调整显示条数。",
         "row.local": "本地可调",
 
         "method.title": "权重",
@@ -227,8 +249,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "meta.fetched": "拉取 {n} 个模型",
         "meta.rankable": "可排名 {n} 个",
         "meta.localgateway": "本地网关",
-        "meta.sources": "可达来源",
-        "meta.none": "未配置",
         "meta.byline": "评分与呈现由 scipick 完成。",
         "meta.license": "MIT 许可",
         "bench.title": "基准说明",
@@ -245,20 +265,34 @@ STRINGS: dict[str, dict[str, str]] = {
         "bench.index": "综合多项评测的推理指数。",
         "bench.lcr": "对长输入（如整个代码仓库）的检索与推理能力。",
         "bench.terminal": "真实 shell 中的智能体执行——多步命令行任务。",
-        "bench.coverage.note": "榜单 {total} 个模型中有 {n} 个报告了该基准。",
         "method.note": "权重是相对的，并按模型逐一重归一化，因此缺失的基准不会被当作 0 分。",
-        "podium.ability": "前三名 · 最高能力",
-        "podium.value": "前三名 · 最佳性价比",
-        "podium.ability.sub": "加权得分最高，不考虑价格。",
-        "podium.value.sub": "在接近前沿的模型中，每美元能力最强。",
+        "podium.by.score": "加权得分前三",
+        "podium.by.value": "每美元能力前三",
+        "podium.leader.value": "本视图最值",
+        "podium.leader.score": "本视图最高分",
         "podium.per_dollar": "分/美元",
-        "podium.more": "查看全部 {n} 个入榜模型",
+
+        "frontier.title": "得分与价格",
+        "frontier.desc": (
+            "本视图下所有已公布价格的模型。折线是效率前沿：在每个价格点上"
+            "能达到的最好得分。落在折线上的模型，不会被别的模型在得分和价格上同时超越。"
+        ),
+        "frontier.axis.price": "混合价格，美元/百万 token（对数刻度）",
+        "frontier.axis.score": "加权得分",
+        "frontier.legend.frontier": "效率前沿",
+        "frontier.legend.other": "其他模型",
+        "frontier.legend.top": "前三名",
+        "frontier.nopriced": "本视图没有公布价格的模型。",
         "meta.source_code": "源码",
         "meta.selection": (
             "自 {aa} 个模型中筛选：每个产品线仅保留最新一代，仅收录主流厂商"
             "（已排除 {superseded} 条旧代次、{vendors} 条非主流厂商）。"
         ),
 
+        "preset.capability.label": "综合能力",
+        "preset.value.label": "性价比",
+        "preset.coding.label": "代码",
+        "preset.longcontext.label": "长上下文",
         "preset.capability.desc": "绝对能力，不考虑价格。",
         "preset.value.desc": "在接近前沿的模型中比每美元能力。",
         "preset.coding.desc": "偏重代码生成与终端执行能力。",

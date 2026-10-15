@@ -28,6 +28,28 @@ answers:
 independent rankings, so the numbers stay comparable. You can add your own view
 by editing a YAML file — no code changes.
 
+Each view is self-contained: it states its own top three, the efficient frontier
+for its own scoring, and the full ranking. Switching views changes all of it, so
+what is on screen always describes the view you selected.
+
+## Reading the page
+
+**Top three, per view.** The podium leads with the view's own ranking criterion,
+then names the leader on the other axis — so "who is strongest" and "who is best
+value" are both answerable without leaving the view.
+
+**Score vs price.** The scatter plots every priced model in the view against a
+log-scaled blended price. The blue staircase is the *efficient frontier*: the
+best score available at or below each price. A model on the line is not
+dominated — nothing is both cheaper and better. Everything below it is. This is
+the view that makes the trade-off legible in a way a ranked list cannot, and it
+is why the value gate is a rule rather than a sort order.
+
+**Full ranking.** Sortable by any column, and collapsed to the first screen by
+default. Every row ships in the file, so search and sort cover the whole set and
+"Show all" reveals the rest in place. Sorting reads structured keys rather than
+cell text, so "price not published" sorts as missing rather than as free.
+
 ## How it works
 
 ```
@@ -190,7 +212,9 @@ python -m pytest tests/ -q
 ```
 
 The suite covers the decisions that are easy to regress: renormalisation,
-coverage, the no-price rule, name matching and de-duplication.
+coverage, the no-price rule, name matching and de-duplication. It also covers the
+page itself — that each view's podium matches its own table, that no two frontier
+labels overprint, and that a collapsed ranking still contains every row.
 
 ## Limitations
 
@@ -203,6 +227,15 @@ coverage, the no-price rule, name matching and de-duplication.
   work. They are visible, and editable, precisely so you can disagree.
 - **Data is Artificial Analysis's.** scipick does not benchmark anything; it
   re-weights someone else's measurements. Please respect their terms.
+- **The frontier is in-sample.** The efficient frontier is computed from the same
+  models being ranked, so it describes the current field, not a permanent bar. A
+  quiet release week moves it.
+
+## Design notes
+
+The visual language, the borrowing from Artificial Analysis's frontier chart, and
+the four layout defects that were measured and fixed are written up in
+[DESIGN.md](DESIGN.md).
 
 ## License
 

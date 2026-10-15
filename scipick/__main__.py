@@ -49,7 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="include superseded generations, not just the latest "
                         "version of each product line")
     p.add_argument("--limit", type=int, default=60,
-                   help="rows to render per view (default: 60; 0 = no limit)")
+                   help="rows shown initially per view (default: 60; 0 = show "
+                        "all at once). All rows are always rendered, so search "
+                        "and sort cover the whole board either way.")
     p.add_argument("--list-presets", action="store_true",
                    help="list available presets and exit")
     p.add_argument("--open", action="store_true", dest="do_open",

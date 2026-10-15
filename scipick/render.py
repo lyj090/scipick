@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from datetime import datetime, timezone
 
 from .config import DEFAULT_PRESETS, Preset
@@ -59,6 +60,8 @@ CSS = """
 --shadow:0 1px 2px rgba(16,18,20,.03);
 --shadow-lift:0 2px 4px rgba(16,18,20,.04),0 12px 28px rgba(16,18,20,.07);
 --radius:16px;
+/* Height of the sticky bar, so sticky table headers can pin below it. */
+--topbar:67px;
 --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",
   "Microsoft YaHei","Noto Sans SC",sans-serif;
 --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
@@ -128,48 +131,49 @@ border-color:var(--line);box-shadow:0 -2px 0 var(--accent) inset}
 /* ---------- panels ---------- */
 .panel{display:none;padding-top:26px}
 .panel.on{display:block}
-/* Entrance is a short, single-direction rise. Animating transform/opacity only
-   keeps it off the layout path, so 60 rows and 24 bars stay cheap. */
+/* Entrance is a short, single-direction rise. Transform and opacity are the
+   only animated properties, so the whole view stays off the layout path. */
+.panel.on .podium,
 .panel.on .cards,
-.panel.on .plot,
+.panel.on .fig,
 .panel.on .tw,
 .panel.on .note,
 .panel.on .desc{animation:rise .34s cubic-bezier(.22,.61,.36,1) backwards}
 .panel.on .desc{animation-delay:0s}
-.panel.on .cards{animation-delay:.04s}
-.panel.on .note{animation-delay:.06s}
-.panel.on .plot{animation-delay:.10s}
-.panel.on .tw{animation-delay:.14s}
+.panel.on .podium{animation-delay:.03s}
+.panel.on .cards{animation-delay:.06s}
+.panel.on .note{animation-delay:.08s}
+.panel.on .fig{animation-delay:.10s}
+.panel.on .tw{animation-delay:.13s}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* Bars grow from the baseline. Delay is capped by nth-child so a long chart
-   does not stagger for a full second. */
-.panel.on .col .bx{animation:grow .5s cubic-bezier(.22,.61,.36,1) backwards;
-transform-origin:bottom}
-.panel.on .col:nth-child(1) .bx{animation-delay:.06s}
-.panel.on .col:nth-child(2) .bx{animation-delay:.10s}
-.panel.on .col:nth-child(3) .bx{animation-delay:.14s}
-.panel.on .col:nth-child(4) .bx{animation-delay:.18s}
-.panel.on .col:nth-child(5) .bx{animation-delay:.22s}
-.panel.on .col:nth-child(n+6) .bx{animation-delay:.26s}
-@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+/* The frontier line draws itself in, and the points fade in behind it. Only
+   stroke-dashoffset and opacity animate; the geometry is untouched, so this
+   stays compositor-friendly. */
+.panel.on .fline{stroke-dasharray:var(--len,2400);stroke-dashoffset:var(--len,2400);
+animation:draw .75s cubic-bezier(.4,.1,.2,1) .12s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.panel.on .fdot{animation:fade .4s ease backwards;animation-delay:.4s}
+.panel.on .fl{animation:fade .5s ease backwards;animation-delay:.5s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
 .panel .desc{color:var(--dim);font-size:14px;margin:0 0 4px}
 
 /* ---------- cards ---------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;
 margin:20px 0 8px}
 
-/* ---------- podium: the top 3, ability and value side by side ---------- */
-.podiums{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:28px 0 10px}
+/* ---------- podium: each view's own top 3 ---------- */
 .podium{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-padding:22px 22px 8px;box-shadow:var(--shadow)}
+padding:20px 22px 4px;box-shadow:var(--shadow);margin:22px 0 4px}
+.phead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .podium h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
 color:var(--dim);margin:0}
-.podium .sub{color:var(--dim2);font-size:12.5px;margin:5px 0 16px;line-height:1.5}
-.prow{display:flex;align-items:center;gap:14px;padding:13px 0;
+.pview{font-size:11.5px;font-family:var(--mono);color:var(--dim2);
+border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.prow{display:flex;align-items:center;gap:14px;padding:12px 0;
 border-top:1px solid var(--line)}
-.prow:first-of-type{border-top:none}
-.pmedal{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
-justify-content:center;font-size:13.5px;font-weight:750;font-family:var(--mono);
+.prow:first-child{border-top:none}
+.pmedal{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+justify-content:center;font-size:13px;font-weight:750;font-family:var(--mono);
 background:var(--soft2);color:var(--dim)}
 .prow.p1 .pmedal{background:#fdf3d8;color:var(--gold)}
 .prow.p2 .pmedal{background:#f1f1f3;color:var(--silver)}
@@ -184,7 +188,70 @@ background:var(--soft2);color:var(--dim)}
 letter-spacing:-.4px}
 .pval small{display:block;font-size:11px;font-weight:500;color:var(--dim2);
 letter-spacing:0;margin-top:2px}
-@media(max-width:820px){.podiums{grid-template-columns:1fr;gap:14px}}
+/* The secondary leader sits on a tinted strip: it answers the other question
+   without competing with the three ranked rows above it. */
+.plead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 -22px;
+padding:11px 22px;background:var(--soft);border-top:1px solid var(--line);
+border-radius:0 0 var(--radius) var(--radius);font-size:13px}
+.plead-k{color:var(--dim);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;
+font-weight:650}
+.plead-n{font-weight:640;overflow-wrap:anywhere}
+.plead-v{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:14px}
+.plead-v small{font-size:10.5px;font-weight:500;color:var(--dim2);margin-left:3px}
+
+/* ---------- frontier: score vs price scatter ---------- */
+.fig{margin:16px 0 8px;background:var(--panel);border:1px solid var(--line);
+border-radius:var(--radius);padding:14px 16px 10px;box-shadow:var(--shadow)}
+.fig svg{display:block;width:100%;height:auto}
+.fg{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.ft{fill:var(--dim2);font-size:11px;font-family:var(--mono)}
+.fa{fill:var(--dim);font-size:12px;font-weight:600}
+/* Labels carry a halo in the panel colour and are painted halo-first, so a
+   label that lands on the frontier line or on a dot stays readable. This is
+   more robust than chasing every collision, since the frontier is a staircase
+   and some overlap is unavoidable at small widths. */
+.fl{fill:var(--fg2);font-size:11px;font-family:var(--mono);
+paint-order:stroke;stroke:var(--panel);stroke-width:3.2px;stroke-linejoin:round}
+.fline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;
+stroke-linecap:round;opacity:.85;vector-effect:non-scaling-stroke}
+.fdot{fill:var(--dim2);opacity:.5}
+.fdot.front{fill:var(--accent);opacity:1}
+.fdot.top{fill:var(--gold);stroke:var(--panel);stroke-width:1.5;opacity:1}
+[data-theme="dark"] .fdot.top{fill:#e8c26a}
+.fdot:hover{opacity:1;stroke:var(--fg);stroke-width:1.5}
+.flegend{display:flex;gap:18px;flex-wrap:wrap;padding:8px 2px 4px;
+border-top:1px solid var(--line);margin-top:8px;font-size:12px;color:var(--dim)}
+.flegend span{display:flex;align-items:center;gap:6px}
+.sw{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.sw.front{background:var(--accent)}
+.sw.top{background:var(--gold)}
+.sw.other{background:var(--dim2);opacity:.55}
+
+/* ---------- table controls: expand + sort ---------- */
+.tctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 -4px;
+font-size:13px;color:var(--dim)}
+.trows{display:flex;align-items:center;gap:7px}
+.tsel{font:inherit;font-size:12.5px;padding:4px 8px;border-radius:8px;
+border:1px solid var(--line);background:var(--panel);color:var(--fg2);cursor:pointer}
+.tsel:focus{outline:none;border-color:var(--accent)}
+.btn.tall{padding:5px 11px;font-size:12.5px;margin-left:auto}
+th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}
+th[data-sort]:hover{color:var(--fg)}
+th[data-sort]::after{content:"";display:inline-block;width:0;height:0;margin-left:5px;
+vertical-align:middle;border-left:3.5px solid transparent;
+border-right:3.5px solid transparent;border-bottom:4px solid var(--line2);
+opacity:0;transition:opacity .15s}
+th[data-sort]:hover::after{opacity:.6}
+th[data-sort][aria-sort="ascending"]::after{border-bottom-color:var(--accent);opacity:1}
+th[data-sort][aria-sort="descending"]::after{border-bottom:none;
+border-top:4px solid var(--accent);opacity:1}
+/* Rows past the initial cap. Expressed as :not(.shown) rather than a bare
+   .deep rule so that tr.hide still wins for a row that is both collapsed and
+   filtered out — otherwise filtering could resurrect a hidden row. */
+tr.deep:not(.shown){display:none}
+@media(max-width:820px){.podium{padding:18px 18px 4px}
+.plead{margin:0 -18px;padding:10px 18px}
+.fig{padding:12px 10px 8px}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
 padding:18px 20px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;
 min-height:124px}
@@ -204,38 +271,29 @@ border-radius:0 10px 10px 0;margin:18px 0;font-size:13.5px;color:var(--fg2)}
 .note.info{background:var(--accent-soft);border-left-color:var(--accent)}
 .note b{color:var(--fg)}
 
-/* ---------- chart ---------- */
-.plot{display:flex;align-items:flex-end;gap:5px;height:236px;margin-top:18px;
-border-bottom:1px solid var(--line2);position:relative}
-.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;
-height:100%;position:relative;min-width:0}
-.col .bv{font-size:10.5px;font-family:var(--mono);color:var(--dim);margin-bottom:4px;
-font-variant-numeric:tabular-nums}
-.col .bx{width:100%;border-radius:4px 4px 0 0;
-background:linear-gradient(180deg,var(--bar2),var(--bar1));transition:opacity .15s}
-.col{transition:transform .14s ease}
-.col:hover{transform:translateY(-2px)}
-.col:first-child .bx{background:linear-gradient(180deg,var(--accent),var(--bar1))}
-.xlab{display:flex;gap:5px;margin-top:8px}
-.xlab .c{flex:1;min-width:0}
-.xlab span{display:block;font-size:10.5px;color:var(--dim);writing-mode:vertical-rl;
-transform:rotate(180deg);height:100px;overflow:hidden;margin:0 auto}
-
 /* ---------- tables ---------- */
-.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:6px}
+.tw{margin-top:6px}
+/* Methodology and benchmark tables carry long unbreakable metric names, so
+   they are always wider than a narrow page and need their own scroll container. */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* The ranking table is the exception. An overflow-x container is also a scroll
+   container, which silently disables position:sticky on its header — so on any
+   screen wide enough for the columns to fit, it must not have one. Below 860px
+   the columns genuinely do not fit, and scrolling is the lesser evil. */
+.panel .tw{overflow-x:visible}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);
 white-space:nowrap}
+/* The header pins just below the sticky page bar. ``top:0`` would tuck it
+   underneath that bar, where its lower z-index loses to the page header.
+   ``--topbar`` is set per breakpoint because the bar wraps to two rows on
+   narrow screens. */
 th{font-size:11.5px;color:var(--dim);font-weight:650;text-transform:uppercase;
-letter-spacing:.05em;position:sticky;top:0;background:var(--bg);z-index:1}
+letter-spacing:.05em;position:sticky;top:var(--topbar,67px);background:var(--bg);z-index:1}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);
 font-size:13px}
 tbody tr{transition:background .12s ease}
 tbody tr:hover{background:var(--soft)}
-/* Dim siblings so the hovered bar is unambiguous in a dense chart. */
-.plot:hover .col .bx{opacity:.45}
-.plot .col:hover .bx{opacity:1}
-.col .bx{transition:opacity .14s ease}
 /* Keyboard users get the same affordance as pointer users. */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 /* Filtered-out rows collapse rather than vanishing, so filtering reads as a
@@ -274,10 +332,18 @@ footer .sep{color:var(--line2)}
 @media(prefers-reduced-motion:reduce){
 *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
 transition-duration:.01ms!important;scroll-behavior:auto!important}
-.panel.on .cards,.panel.on .plot,.panel.on .tw,.panel.on .note,
-.panel.on .desc,.panel.on .col .bx{animation:none}
-.plot:hover .col .bx{opacity:1}
-.col:hover{transform:none}
+.panel.on .podium,.panel.on .cards,.panel.on .fig,.panel.on .tw,.panel.on .note,
+.panel.on .desc{animation:none}
+/* The frontier must land fully drawn rather than mid-stroke: the draw-in is
+   decorative, but an incomplete line would misstate the data. */
+.panel.on .fline{animation:none;stroke-dasharray:none;stroke-dashoffset:0}
+.panel.on .fdot,.panel.on .fl{animation:none}
+}
+/* The ranking table's seven columns stop fitting around 860px. Below that the
+   panel table scrolls sideways like the others — which costs the sticky header
+   on phones, but a table that overflows the viewport is worse. */
+@media(max-width:860px){
+.panel .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
 @media(max-width:720px){
 .wrap{padding:0 16px 72px}
@@ -293,14 +359,27 @@ h1{font-size:26px}
 .search{order:10;flex:1 1 auto;margin-top:2px;min-width:0}
 .search input,.search input:focus{width:100%}
 #qcount{order:11;flex:0 0 auto;margin-top:2px;padding:4px 0 4px 6px}
-.plot{height:190px}
-.xlab span{height:78px}
+/* The bar wraps here, so sticky headers must pin lower. */
+:root{--topbar:106px}
+/* Below this width the ranking table genuinely overflows, so it scrolls
+   sideways. Doing this unconditionally would be worse than useless: an
+   overflow-x container is also a scroll container, and that silently disables
+   position:sticky on the header inside it on every screen size. */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .cards{grid-template-columns:1fr 1fr;gap:10px}
 .card{padding:13px 14px 15px;min-height:104px}
 .card .v{font-size:21px}
 .card .v.sm{font-size:14px}
 th,td{padding:9px 8px}
 .bar{width:34px;margin-right:6px}
+.podium{padding:16px 16px 2px}
+.plead{margin:0 -16px;padding:10px 16px}
+.fig{padding:10px 8px 6px}
+/* The scatter is a fixed viewBox, so at phone width its 11px labels would
+   scale down to ~4px and be unreadable. Below this breakpoint the figure pans
+   horizontally instead, keeping the labels legible rather than discarding them. */
+.fig{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fig svg{min-width:660px}
 }
 @media(max-width:430px){
 .cards{grid-template-columns:1fr}
@@ -310,9 +389,10 @@ th,td{padding:9px 8px}
 h1{font-size:24px}
 .tab{padding:9px 12px;font-size:13.5px}
 .tab .k{display:none}
-.plot{height:165px}
-.xlab span{height:70px;font-size:9.5px}
-.col .bv{font-size:9.5px}
+.pval{font-size:15px}
+.plead{font-size:12.5px}
+.tctl{gap:8px}
+.btn.tall{margin-left:0}
 }
 """
 
@@ -345,11 +425,16 @@ JS = r"""
     document.title = t(lang, 'page.title');
     var m = document.querySelector('meta[name="description"]');
     if (m) m.setAttribute('content', t(lang, 'page.desc'));
-    // Coverage-floor notes carry an interpolated count.
+    // Exclusion notes carry an interpolated count. Each cause gets its own
+    // sentence, so the wording always matches why the model is missing.
     document.querySelectorAll('[data-floor-n]').forEach(function(el){
       var n = el.getAttribute('data-floor-n');
       var pct = el.getAttribute('data-floor-pct');
-      el.innerHTML = t(lang,'panel.floor').replace('{n}',n).replace('{pct}',pct);
+      el.textContent = t(lang,'panel.floor').replace('{n}',n).replace('{pct}',pct);
+    });
+    document.querySelectorAll('[data-noprice-n]').forEach(function(el){
+      el.textContent = t(lang,'panel.noprice')
+        .replace('{n}', el.getAttribute('data-noprice-n'));
     });
     // Summary-card notes carry interpolated values.
     document.querySelectorAll('[data-tpl]').forEach(function(el){
@@ -418,6 +503,125 @@ JS = r"""
     });
   });
 
+  /* ---------- full ranking: expand ---------- */
+  // Two separate ideas, deliberately kept apart:
+  //   data-cap  - how many rows the *user* asked to see (their choice, sticky)
+  //   applyRows - what is visible right now (may be temporarily overridden)
+  // A search overrides visibility so it can reach rows below the fold, then the
+  // cap is restored when the query clears. Conflating the two would either
+  // reset the user's choice on every keystroke, or leave a filtered view stuck
+  // expanded. The cap is applied positionally over the table's rows, not by
+  // trusting the class the server emitted, because sorting reorders the rows:
+  // "top N" must mean the top N *after* a sort.
+  function applyRows(wrap, visible){
+    var rows = wrap.querySelectorAll('tbody tr');
+    var total = rows.length;
+    var lim = Math.min(visible, total);
+    rows.forEach(function(tr, i){
+      var over = i >= lim;
+      tr.classList.toggle('deep', over);
+      tr.classList.toggle('shown', !over);
+    });
+    var btn = wrap.querySelector('[data-more]');
+    if (btn){
+      btn.hidden = lim >= total;
+      var lbl = btn.querySelector('[data-tpl]');
+      if (lbl) lbl.setAttribute('data-v-n', String(total - lim));
+    }
+    var sel = wrap.querySelector('.tsel');
+    if (sel){
+      var want = String(lim >= total ? 0 : lim);
+      if (sel.value !== want) sel.value = want;
+    }
+    if (current.lang) applyLang(current.lang);
+  }
+  function capOf(wrap){
+    return parseInt(wrap.getAttribute('data-cap') || '0', 10) ||
+           wrap.querySelectorAll('tbody tr').length;
+  }
+  // Declared here, before the sort handler that reads it. `var box` is
+  // assigned further down, but a function declaration is hoisted, so
+  // searchActive() is safe to call from any handler defined below.
+  function searchActive(){ return !!(box && box.value.trim()); }
+  document.querySelectorAll('.tw[data-total]').forEach(function(wrap){
+    wrap.setAttribute('data-cap',
+      String(wrap.querySelectorAll('tbody tr:not(.deep)').length));
+    var sel = wrap.querySelector('.tsel');
+    if (sel) sel.addEventListener('change', function(){
+      var n = parseInt(sel.value, 10) || 0;
+      var rows = wrap.querySelectorAll('tbody tr').length;
+      wrap.setAttribute('data-cap', String(n === 0 ? rows : n));
+      applyRows(wrap, capOf(wrap));
+    });
+    var btn = wrap.querySelector('[data-more]');
+    if (btn) btn.addEventListener('click', function(){
+      wrap.setAttribute('data-cap',
+        String(wrap.querySelectorAll('tbody tr').length));
+      applyRows(wrap, capOf(wrap));
+    });
+  });
+
+  /* ---------- full ranking: sort ---------- */
+  // Sorting reads pre-rendered data-k-* attributes rather than cell text, so it
+  // never has to parse "$1.20" or an em dash, and missing values sort last in
+  // both directions instead of being treated as zero.
+  var TEXT_COLS = { model: 1, family: 1 };
+  function sortTable(th){
+    var table = th.closest('table');
+    var key = th.getAttribute('data-sort');
+    var numeric = !TEXT_COLS[key];
+    var prev = th.getAttribute('aria-sort');
+    // Text sorts A-Z first; numbers sort best-first, which is what a reader
+    // expects from a score or price column. Clicking the active column flips it.
+    var dir;
+    if (prev) dir = (prev === 'ascending') ? 'descending' : 'ascending';
+    else dir = numeric ? 'descending' : 'ascending';
+
+    table.querySelectorAll('th[data-sort]').forEach(function(x){
+      x.removeAttribute('aria-sort');
+    });
+    th.setAttribute('aria-sort', dir);
+
+    var tbody = table.querySelector('tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var attr = 'data-k-' + key;
+    rows.sort(function(a, b){
+      var av = a.getAttribute(attr) || '';
+      var bv = b.getAttribute(attr) || '';
+      if (numeric){
+        var an = av === '', bn = bv === '';
+        if (an && bn) return 0;
+        if (an) return 1;                 // missing always sorts last
+        if (bn) return -1;
+        var d = parseFloat(av) - parseFloat(bv);
+        return (dir === 'ascending') ? d : -d;
+      }
+      var c = av < bv ? -1 : (av > bv ? 1 : 0);
+      return (dir === 'ascending') ? c : -c;
+    });
+    rows.forEach(function(tr){ tbody.appendChild(tr); });
+
+    // Re-number: the rank column must show the visible order, not the order the
+    // rows happened to be rendered in.
+    rows.forEach(function(tr, i){
+      var cell = tr.querySelector('td.rk');
+      if (cell){
+        cell.textContent = String(i + 1);
+        cell.classList.toggle('top', i < 3);
+      }
+    });
+    var wrap = table.closest('.tw');
+    if (wrap) applyRows(wrap, searchActive() ? wrap.querySelectorAll('tbody tr').length
+                                             : capOf(wrap));
+  }
+  document.querySelectorAll('th[data-sort]').forEach(function(th){
+    th.setAttribute('tabindex', '0');
+    th.addEventListener('click', function(){ sortTable(th); });
+    th.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); sortTable(th); }
+    });
+  });
+
   /* ---------- search ---------- */
   var box = document.getElementById('q');
   function norm(s){ return (s||'').toLowerCase(); }
@@ -426,6 +630,12 @@ JS = r"""
     document.querySelectorAll('tbody tr[data-name]').forEach(function(tr){
       var hit = !q || tr.getAttribute('data-name').indexOf(q) >= 0;
       tr.classList.toggle('hide', !hit);
+    });
+    // A match below the fold would otherwise be invisible and the count would
+    // read 0, so while a query is active every row is eligible and only the
+    // filter decides visibility. Clearing the query restores the row cap.
+    document.querySelectorAll('.tw[data-total]').forEach(function(w){
+      applyRows(w, q ? w.querySelectorAll('tbody tr').length : capOf(w));
     });
     updateCount();
   }
@@ -439,7 +649,13 @@ JS = r"""
     if (!panel) { counter.textContent=''; return; }
     var rows = panel.querySelectorAll('tbody tr[data-name]');
     var shown = 0;
-    rows.forEach(function(r){ if (!r.classList.contains('hide')) shown++; });
+    rows.forEach(function(r){
+      // "Shown" means actually visible: not filtered out, and not still
+      // collapsed behind the row cap.
+      if (r.classList.contains('hide')) return;
+      if (r.classList.contains('deep') && !r.classList.contains('shown')) return;
+      shown++;
+    });
     var tpl = current.lang ? t(current.lang,'search.count') : '{shown} of {total}';
     counter.textContent = tpl.replace('{shown}', shown).replace('{total}', rows.length);
   }
@@ -499,29 +715,223 @@ def bar(pct: float) -> str:
     return f'<span class="bar"><i style="width:{pct:.0f}%"></i></span>'
 
 
-def _chart(models: list[dict], value_key: str, top: int = 24) -> str:
-    rows = [m for m in models if m.get(value_key) is not None][:top]
-    if not rows:
-        return '<p class="lede">&mdash;</p>'
-    vals = [m[value_key] for m in rows]
-    vmax, vmin = max(vals), min(vals)
-    span = (vmax - vmin) or max(abs(vmax) * 0.2, 1)
-    floor = max(0.0, vmin - span * 0.28)
-    rng = (vmax - floor) or 1
+def _frontier(models: list[dict], preset: Preset, top: int = 3) -> str:
+    """Score-versus-price scatter with the efficient frontier line.
 
-    bars, labs = [], []
-    for m in rows:
-        v = m[value_key]
-        h = max(2.5, min(93.0, (v - floor) / rng * 93.0))
-        name = m["name"]
-        short = name if len(name) <= 26 else name[:25] + "…"
-        bars.append(
-            f'<div class="col" title="{esc(name)} — {v:.1f}">'
-            f'<span class="bv">{v:.1f}</span>'
-            f'<div class="bx" style="height:{h:.1f}%"></div></div>'
+    This is the view Artificial Analysis leads with, and it answers a question
+    the tables cannot: *where* a model sits relative to what its price buys.
+    A ranked list tells you the order; this tells you the shape of the trade-off
+    and which models are actually dominated.
+
+    The frontier is the usual Pareto staircase in log-price: walking from
+    cheapest to dearest, keep a model only when it beats the best score seen so
+    far. Everything else is dominated — something is either cheaper with the
+    same score, or better for the same money. Points on the line are the only
+    ones where spending more strictly buys more.
+
+    Rendered as inline SVG in a fixed viewBox so it scales responsively without
+    JS layout, and stays crisp at any width. Prices are log-scaled because the
+    usable range spans more than two orders of magnitude.
+    """
+    import math
+
+    rows = []
+    for m in models:
+        score = m["scores"].get(preset.key)
+        price = m["pricing"].get("blended")
+        if score is None or not price or price <= 0:
+            continue
+        if not _eligible(m, preset):
+            continue
+        rows.append((price, score, m))
+    if not rows:
+        return (f'<p class="lede" data-i18n="frontier.nopriced">'
+                f'{esc(strings_for(DEFAULT_LANG)["frontier.nopriced"])}</p>')
+
+    rows.sort(key=lambda r: r[0])
+    prices = [r[0] for r in rows]
+    scores = [r[1] for r in rows]
+
+    # Pareto frontier: best score available at or below each price.
+    frontier, best = [], -1e9
+    for price, score, m in rows:
+        if score > best:
+            best = score
+            frontier.append((price, score, m))
+    frontier_keys = {id(m) for _, _, m in frontier}
+
+    # Viewport. Width matches the page measure; height keeps roughly 3:2.
+    W, H, PL, PR, PT, PB = 1000.0, 380.0, 52.0, 16.0, 18.0, 40.0
+    lp = [math.log10(p) for p in prices]
+    pmin, pmax = min(lp), max(lp)
+    if pmax - pmin < 0.25:            # keep a single-price board from collapsing
+        mid = (pmax + pmin) / 2
+        pmin, pmax = mid - 0.125, mid + 0.125
+    smin = min(scores)
+    smax = max(scores)
+    pad = (smax - smin) * 0.08 or 1.0
+    smin, smax = max(0.0, smin - pad), smax + pad
+
+    def x(price: float) -> float:
+        return PL + (math.log10(price) - pmin) / (pmax - pmin) * (W - PL - PR)
+
+    def y(score: float) -> float:
+        return PT + (smax - score) / (smax - smin) * (H - PT - PB)
+
+    # Log-decade gridlines, labelled with the price they represent.
+    ticks = []
+    lo, hi = math.floor(pmin), math.ceil(pmax)
+    for d in range(lo, hi + 1):
+        for mult in (1, 2, 5):
+            v = mult * (10 ** d)
+            if pmin <= math.log10(v) <= pmax:
+                ticks.append(v)
+    grid = "".join(
+        f'<line x1="{x(v):.1f}" y1="{PT:.0f}" x2="{x(v):.1f}" y2="{H-PB:.0f}" '
+        f'class="fg"/>'
+        f'<text x="{x(v):.1f}" y="{H-PB+16:.0f}" class="ft" text-anchor="middle">'
+        f'{fmt_price(v)}</text>'
+        for v in ticks
+    )
+    # Y gridlines. The label precision adapts to the range: with a narrow
+    # spread, fixed integers all render as the same number ("50 50 50 50"),
+    # which is worse than no axis at all. Pick the decimals needed to tell the
+    # ticks apart.
+    span = smax - smin
+    if span >= 8:
+        decimals = 0
+    elif span >= 0.8:
+        decimals = 1
+    else:
+        decimals = 2
+    yticks = []
+    steps = 4
+    for i in range(steps + 1):
+        v = smin + span * i / steps
+        yticks.append(
+            f'<line x1="{PL:.0f}" y1="{y(v):.1f}" x2="{W-PR:.0f}" y2="{y(v):.1f}" '
+            f'class="fg"/>'
+            f'<text x="{PL-8:.0f}" y="{y(v)+3.5:.1f}" class="ft" '
+            f'text-anchor="end">{v:.{decimals}f}</text>'
         )
-        labs.append(f'<div class="c"><span>{esc(short)}</span></div>')
-    return f'<div class="plot">{"".join(bars)}</div><div class="xlab">{"".join(labs)}</div>'
+    grid += "".join(yticks)
+
+    # The frontier staircase: horizontal runs to each step, then the step up.
+    # Segment lengths are accumulated so the draw-in animation can set an exact
+    # stroke-dashoffset; a guessed constant would leave a visible gap or an
+    # over-long dash on a board with many steps.
+    path = []
+    path_len = 0.0
+    prev_y = None
+    prev_x = None
+    for i, (price, score, _m) in enumerate(frontier):
+        px, py = x(price), y(score)
+        if i == 0:
+            path.append(f"M{px:.1f},{py:.1f}")
+        else:
+            path.append(f"L{px:.1f},{prev_y:.1f}")
+            path.append(f"L{px:.1f},{py:.1f}")
+            path_len += abs(px - prev_x) + abs(py - prev_y)
+        prev_y, prev_x = py, px
+    frontier_path = " ".join(path)
+    path_len = path_len or 1.0
+
+    top_names = {m["name"] for m in _ranked_for(models, preset)[:top]} if top else set()
+
+    dots = []
+    for price, score, m in rows:
+        is_f = id(m) in frontier_keys
+        is_top = m["name"] in top_names
+        cls = "fdot top" if is_top else ("fdot front" if is_f else "fdot")
+        r = 5.0 if is_top else (3.6 if is_f else 2.6)
+        dots.append(
+            f'<circle cx="{x(price):.1f}" cy="{y(score):.1f}" r="{r}" class="{cls}">'
+            f'<title>{esc(m["name"])} — {score:.1f} @ {fmt_price(price)}/1M</title>'
+            f"</circle>"
+        )
+
+    # Only the frontier and the top three get labels; labelling everything is
+    # noise. Points near the right edge are anchored to the left of the marker so
+    # the text stays inside the viewBox.
+    #
+    # The frontier is a staircase, so consecutive steps routinely sit at almost
+    # the same x (Qwen 3.5 -> Gemma 4 -> Nemotron, for instance) and their
+    # labels would overprint into an unreadable smear. Greedy vertical nudging
+    # fixes it: each label is pushed down until it clears every label already
+    # placed in an overlapping column band. That is O(n^2) on a few dozen
+    # labels, entirely at render time, and needs no runtime layout.
+    CHAR_W = 6.4          # ~11px monospace, plus a little slack
+    LINE_H = 12.5
+    PAD = 3.0
+    placed: list[tuple[float, float, float, float]] = []   # x0,y0,x1,y1
+    labels = []
+    cands = [r for r in rows
+             if id(r[2]) in frontier_keys or r[2]["name"] in top_names]
+    # The labelled markers are obstacles in their own right: a label must not
+    # print over the dot it belongs to, nor over a neighbouring one.
+    for price, score, m in cands:
+        cx, cy = x(price), y(score)
+        r = 6.0
+        placed.append((cx - r, cy - r, cx + r, cy + r))
+    # Right-most first, so the tightest cluster gets first choice of position.
+    cands.sort(key=lambda r: -x(r[0]))
+    for price, score, m in cands:
+        text = _short_name(m["name"])
+        anchor = "end" if x(price) > W * 0.72 else "start"
+        dx = -10 if anchor == "end" else 10
+        tx = x(price) + dx
+        ty = y(score) - 9
+        w = len(text) * CHAR_W + PAD
+        x0, x1 = (tx - w, tx) if anchor == "end" else (tx, tx + w)
+        for _ in range(40):
+            hit = None
+            for (px0, py0, px1, py1) in placed:
+                if x0 < px1 and px0 < x1 and ty - LINE_H * 0.8 < py1 and py0 < ty + LINE_H * 0.8:
+                    hit = py1
+                    break
+            if hit is None:
+                break
+            ty = hit + LINE_H * 0.8
+        ty = min(ty, H - PB - 4)
+        placed.append((x0, ty - LINE_H * 0.8, x1, ty + LINE_H * 0.8))
+        labels.append(
+            f'<text x="{tx:.1f}" y="{ty:.1f}" class="fl" '
+            f'text-anchor="{anchor}">{esc(text)}</text>'
+        )
+
+    s = strings_for(DEFAULT_LANG)
+    return (
+        f'<figure class="fig">'
+        f'<svg viewBox="0 0 {W:.0f} {H:.0f}" role="img" '
+        f'aria-label="{esc(s["frontier.title"])}" preserveAspectRatio="xMidYMid meet">'
+        f"{grid}"
+        f'<path d="{frontier_path}" class="fline" style="--len:{path_len:.0f}"/>'
+        f'{"".join(dots)}{"".join(labels)}'
+        f'<text x="{(PL+W-PR)/2:.0f}" y="{H-6:.0f}" class="fa" text-anchor="middle" '
+        f'data-i18n="frontier.axis.price">{esc(s["frontier.axis.price"])}</text>'
+        f'<text x="14" y="{(PT+H-PB)/2:.0f}" class="fa" text-anchor="middle" '
+        f'transform="rotate(-90 14 {(PT+H-PB)/2:.0f})" '
+        f'data-i18n="frontier.axis.score">{esc(s["frontier.axis.score"])}</text>'
+        f"</svg>"
+        f'<div class="flegend">'
+        f'<span><i class="sw front"></i><span data-i18n="frontier.legend.frontier">'
+        f'{esc(s["frontier.legend.frontier"])}</span></span>'
+        f'<span><i class="sw top"></i><span data-i18n="frontier.legend.top">'
+        f'{esc(s["frontier.legend.top"])}</span></span>'
+        f'<span><i class="sw other"></i><span data-i18n="frontier.legend.other">'
+        f'{esc(s["frontier.legend.other"])}</span></span>'
+        f"</div></figure>"
+    )
+
+
+def _short_name(name: str, limit: int = 22) -> str:
+    """Trim a model name for an axis label.
+
+    Names carry a parenthesised serving variant (e.g. "(Max, Default
+    Fallback)") which is irrelevant once the model is identified.
+    """
+    base = name.split(" (")[0]
+    return base if len(base) <= limit else base[: limit - 1] + "…"
 
 
 def _median(values: list[float]) -> float:
@@ -549,7 +959,8 @@ def _eligible(model: dict, preset: Preset) -> bool:
     return True
 
 
-def _row(rank: int, m: dict, preset: Preset, max_score: float) -> str:
+def _row(rank: int, m: dict, preset: Preset, max_score: float,
+         deep: bool = False) -> str:
     name = esc(m["name"])
     if m.get("available_locally"):
         name += f'<span class="pill local" data-i18n="row.local">local</span>'
@@ -567,8 +978,24 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float) -> str:
     # Search haystack: model name plus family, so "claude" finds the family.
     hay = esc((m["name"] + " " + m["family"]).lower())
 
+    # Sort keys let the client reorder without re-parsing the rendered cells.
+    # Missing values sort last in both directions rather than as zero, which
+    # would otherwise rank "no published price" as if it were free.
+    def sk(v):
+        return "" if v is None else f"{v:.6f}"
+
+    # Collapsed rows carry a class rather than the [hidden] attribute: the
+    # attribute cannot be undone by toggling a class, and the JS cap re-assigns
+    # this class positionally after every sort.
+    deep_attr = ' class="deep"' if deep else ""
     return (
-        f'<tr data-name="{hay}">'
+        f'<tr data-name="{hay}"{deep_attr}'
+        f' data-k-model="{esc(m["name"].lower())}"'
+        f' data-k-family="{esc(m["family"].lower())}"'
+        f' data-k-score="{sk(score)}"'
+        f' data-k-price="{sk(price)}"'
+        f' data-k-eff="{sk(eff)}"'
+        f' data-k-cov="{sk(cov)}">'
         f'<td class="{rk_cls}">{rank}</td>'
         f'<td><span class="nm">{name}</span></td>'
         f'<td class="fam">{esc(m["family"])}</td>'
@@ -581,34 +1008,76 @@ def _row(rank: int, m: dict, preset: Preset, max_score: float) -> str:
 
 
 def _table(models: list[dict], preset: Preset, limit: int | None = None) -> str:
+    """Full ranking with progressive disclosure and client-side sorting.
+
+    Every row is in the DOM, so sorting and filtering need no round trip and
+    the page keeps working offline. ``limit`` decides how many rows are *shown*
+    initially; the rest are revealed in place. Rendering all rows rather than
+    paging keeps search honest — a filter must be able to find a model that is
+    not on the first screen — while the collapsed default keeps the page short.
+    """
     total = len(models)
-    shown = models[:limit] if limit else models
-    if not shown:
+    if not total:
         return '<p class="lede" data-i18n="panel.empty">No models matched this view.</p>'
-    max_score = max((m["scores"].get(preset.key) or 0) for m in shown) or 1
-    body = "".join(_row(i, m, preset, max_score) for i, m in enumerate(shown, 1))
+    max_score = max((m["scores"].get(preset.key) or 0) for m in models) or 1
+    # Rows past the initial cap are marked so the client can reveal them without
+    # moving any data around. Only the first screen's worth is built for the
+    # browser's first paint; the rest is in the same string and costs nothing
+    # extra to store.
+    # ``limit`` of 0 or None means "no cap": show every row outright. Both must
+    # disable the collapsing, or a 0 would mark all rows collapsed while the
+    # control that reveals them is suppressed — an empty table.
+    cap = limit if limit else None
+    body = "".join(
+        _row(i, m, preset, max_score, deep=(cap is not None and i > cap))
+        for i, m in enumerate(models, 1)
+    )
     sort_key = "panel.sorted.eff" if preset.rank_by == "efficiency" else "panel.sorted.score"
-    trunc = ""
-    if limit and total > limit:
-        trunc = (
-            f'<div class="note"><span data-tpl="table.truncated" '
-            f'data-v-shown="{len(shown)}" data-v-total="{total}">'
-            f'Showing the top {len(shown)} of {total}. The JSON export has all models.'
-            f"</span></div>"
+
+    hidden = max(0, total - cap) if cap else 0
+    if hidden:
+        # Offer only caps smaller than the board, de-duplicated against the
+        # default, so no option is a no-op.
+        caps = sorted({c for c in (25, 50, 100, 200) if c < total} | {cap})
+        opts = "".join(
+            f'<option value="{c}"{" selected" if c == limit else ""}>{c}</option>'
+            for c in caps
         )
+        # The "All" option carries an i18n hook; the numeric caps do not need
+        # one. aria-label is set to the same string so the control is not
+        # announced as an unlabelled combobox.
+        all_label = esc(strings_for(DEFAULT_LANG)["table.all"])
+        opts += (f'<option value="0" data-i18n="table.all">{all_label}</option>')
+        ctl = (
+            f'<div class="tctl">'
+            f'<label class="trows">'
+            f'<span data-i18n="table.rows">Rows</span>'
+            f'<select class="tsel" data-i18n-title="table.rows" '
+            f'title="{esc(strings_for(DEFAULT_LANG)["table.rows"])}">{opts}</select>'
+            f'</label>'
+            f'<button type="button" class="btn tall" data-more>'
+            f'<span data-tpl="table.showall" data-v-n="{hidden}">Show all {hidden}</span>'
+            f"</button></div>"
+        )
+    else:
+        ctl = ""
+
+    all_attr = "" if hidden else " data-all"
     return (
-        '<div class="tw"><table><thead><tr>'
+        f'<div class="tw" data-total="{total}"{all_attr}>'
+        f"{ctl}"
+        '<table class="rank"><thead><tr>'
         '<th class="rk">#</th>'
-        '<th data-i18n="th.model">Model</th>'
-        '<th data-i18n="th.family">Family</th>'
-        '<th class="num" data-i18n="th.score">Score</th>'
-        '<th class="num" data-i18n="th.price">$/1M</th>'
-        '<th class="num" data-i18n="th.eff">Eff.</th>'
-        '<th class="num" data-i18n="th.cov">Cov.</th>'
+        '<th data-i18n="th.model" data-sort="model">Model</th>'
+        '<th data-i18n="th.family" data-sort="family">Family</th>'
+        '<th class="num" data-i18n="th.score" data-sort="score">Score</th>'
+        '<th class="num" data-i18n="th.price" data-sort="price">$/1M</th>'
+        '<th class="num" data-i18n="th.eff" data-sort="eff">Eff.</th>'
+        '<th class="num" data-i18n="th.cov" data-sort="cov">Cov.</th>'
         f'</tr></thead><tbody>{body}</tbody></table></div>'
-        f"{trunc}"
         f'<p class="lede"><span data-i18n="{sort_key}">Sorted.</span> '
-        f'<span data-i18n="panel.cov_note">Cov. is coverage.</span></p>'
+        f'<span data-i18n="panel.cov_note">Cov. is coverage.</span> '
+        f'<span data-i18n="table.hint">Click a column heading to sort.</span></p>'
     )
 
 
@@ -668,39 +1137,90 @@ def _podium_rows(rows: list[dict], preset: Preset, mode: str) -> str:
     return "".join(out)
 
 
-def _podiums(models: list[dict], presets: dict[str, Preset]) -> str:
-    """The two headline rankings: strongest and best value.
+def _ranked_for(models: list[dict], preset: Preset) -> list[dict]:
+    """Rankable models for a view, best first under that view's own criterion.
 
-    Answers the two questions a reader actually arrives with, before the
-    full tables. Falls back to the capability view if no value view exists.
+    The frontier gate is applied first, so "best value" means best value among
+    models worth using rather than the best ratio in the whole catalogue.
     """
-    ability = presets.get("capability") or next(iter(presets.values()))
-    value = next((p for p in presets.values() if p.rank_by == "efficiency"), None)
+    gated, _, _ = _frontier_gate(models, preset)
+    rows = [m for m in gated if _eligible(m, preset)]
+    if preset.rank_by == "efficiency":
+        rows.sort(key=lambda m: -(m["efficiency"].get(preset.key) or 0))
+    else:
+        rows.sort(key=lambda m: -(m["scores"].get(preset.key) or 0))
+    return rows
 
-    def ranked_for(preset: Preset) -> list[dict]:
-        gated, _, _ = _frontier_gate(models, preset)
-        rows = [m for m in gated if _eligible(m, preset)]
-        key = (lambda m: -(m["efficiency"].get(preset.key) or 0)) \
-            if preset.rank_by == "efficiency" else \
-            (lambda m: -(m["scores"].get(preset.key) or 0))
-        return sorted(rows, key=key)
 
-    ab_rows = ranked_for(ability)
-    cols = (
-        f'<div class="podium">'
-        f'<h3 data-i18n="podium.ability">Top 3 · Ability</h3>'
-        f'<p class="sub" data-i18n="podium.ability.sub"></p>'
-        f'{_podium_rows(ab_rows, ability, "ability")}</div>'
+def _podium(models: list[dict], preset: Preset, value_floor: float = 0.0) -> str:
+    """One view's leaders, rendered inside that view's panel.
+
+    The previous design hoisted a single capability+value podium above the tab
+    strip. Because the tab strip only toggles panels, that podium never changed:
+    every view showed the same six names, and for views whose top rows differ
+    (coding, long context) it silently disagreed with the table directly below
+    it. Rendering the podium per panel is what makes it describe the view you
+    are actually looking at.
+
+    Each view leads with its own ranking criterion, then names the leader on the
+    other axis. That keeps both "what is strongest" and "what is best value"
+    answerable for every view without printing two near-identical top-threes.
+    """
+    ranked = _ranked_for(models, preset)
+    if not ranked:
+        return ""
+
+    primary_is_value = preset.rank_by == "efficiency"
+    # ``ranked`` is already ordered by this view's own criterion.
+    primary = ranked
+
+    # The opposite axis, held to the value floor so a cheap small model does not
+    # appear here as "best value" while the value board excludes it.
+    other_metric = "scores" if primary_is_value else "efficiency"
+    best_score = ranked[0]["scores"].get(preset.key) or 0
+    floor = best_score * value_floor if value_floor else None
+    other = sorted(
+        (m for m in ranked
+         if m[other_metric].get(preset.key) is not None
+         and (floor is None or (m["scores"].get(preset.key) or 0) >= floor)),
+        key=lambda m: -(m[other_metric].get(preset.key) or 0),
     )
-    if value is not None:
-        va_rows = ranked_for(value)
-        cols += (
-            f'<div class="podium">'
-            f'<h3 data-i18n="podium.value">Top 3 · Value</h3>'
-            f'<p class="sub" data-i18n="podium.value.sub"></p>'
-            f'{_podium_rows(va_rows, value, "value")}</div>'
+
+    head_key = "podium.by.value" if primary_is_value else "podium.by.score"
+    lead_key = ("podium.leader.score" if primary_is_value
+                else "podium.leader.value")
+    mode = "value" if primary_is_value else "ability"
+    lead_mode = "ability" if primary_is_value else "value"
+
+    label_attr = (f' data-i18n="preset.{esc(preset.key)}.label"'
+                  if preset.key in BUILTIN_KEYS else "")
+
+    lead = ""
+    if other:
+        top = other[0]
+        if lead_mode == "value":
+            num = f'{top["efficiency"][preset.key]:.0f}'
+            unit = '<small data-i18n="podium.per_dollar">/$</small>'
+        else:
+            price = top["pricing"].get("blended")
+            num = f'{top["scores"][preset.key]:.1f}'
+            unit = f'<small>{fmt_price(price)}/1M</small>' if price else \
+                '<small data-i18n="card.noprice">no published price</small>'
+        lead = (
+            f'<div class="plead">'
+            f'<span class="plead-k" data-i18n="{lead_key}">{lead_key}</span>'
+            f'<span class="plead-n">{esc(top["name"])}</span>'
+            f'<span class="plead-v">{num}{unit}</span></div>'
         )
-    return f'<div class="podiums">{cols}</div>'
+
+    return (
+        f'<div class="podium" data-podium="{esc(preset.key)}">'
+        f'<div class="phead">'
+        f'<h3 data-i18n="{head_key}">{head_key}</h3>'
+        f'<span class="pview"{label_attr}>{esc(preset.label)}</span></div>'
+        f'<div class="prows">{_podium_rows(primary, preset, mode)}</div>'
+        f"{lead}</div>"
+    )
 
 
 def _panel(models: list[dict], preset: Preset, first: bool,
@@ -715,10 +1235,26 @@ def _panel(models: list[dict], preset: Preset, first: bool,
     else:
         ranked.sort(key=lambda m: -(m["scores"].get(preset.key) or 0))
 
-    excluded = [
+    # Exclusions are split by actual cause. ``_eligible`` fails for two quite
+    # different reasons — too little benchmark coverage, or (on an efficiency
+    # view) no published price — and reporting either one under the other's
+    # heading would put a false claim on the page. The coverage note used to
+    # say "fall below the 50% coverage floor" about models whose coverage was
+    # 1.00, which is exactly the kind of thing a leaderboard cannot afford.
+    below_coverage = [
         m for m in gated
-        if m["scores"].get(preset.key) is not None and not _eligible(m, preset)
+        if m["scores"].get(preset.key) is not None
+        and not _eligible(m, preset)
+        and m["coverage"].get(preset.key, 0.0) < preset.min_coverage
     ]
+    no_price = [
+        m for m in gated
+        if m["scores"].get(preset.key) is not None
+        and not _eligible(m, preset)
+        and m["coverage"].get(preset.key, 0.0) >= preset.min_coverage
+        and m["efficiency"].get(preset.key) is None
+    ]
+    excluded = below_coverage + no_price
 
     best = ranked[0] if ranked else None
     priced_count = sum(1 for m in ranked if m["pricing"].get("blended"))
@@ -737,18 +1273,30 @@ def _panel(models: list[dict], preset: Preset, first: bool,
     )
     best_value = by_value[0] if by_value else None
 
-    chart_rows = []
-    for m in ranked[:24]:
-        v = (m["efficiency"].get(preset.key) if preset.rank_by == "efficiency"
-             else m["scores"].get(preset.key))
-        if v is None:
-            continue
-        row = dict(m)
-        row["_chart"] = v
-        chart_rows.append(row)
+    # The podium inside this panel already names the leaders, so these cards
+    # carry the counts and the ranking caveats instead of repeating the winners.
+    # On an efficiency board every ranked model has a price by definition, so a
+    # "models with a published price" card would print the same number as the
+    # ranked count right beside it. Show the count of models that qualified but
+    # have no price instead — that is the number actually being hidden here.
+    if preset.rank_by == "efficiency":
+        unpriced = sum(1 for m in gated
+                       if m["scores"].get(preset.key) is not None
+                       and m["efficiency"].get(preset.key) is None)
+        priced_card = (
+            "card.unpriced",
+            f'{unpriced}',
+            '<span data-i18n="card.unpriced.note">excluded: no published price</span>',
+            False,
+        )
+    else:
+        priced_card = (
+            "card.priced",
+            f'{priced_count}',
+            '<span data-i18n="card.priced.note">models with a published price</span>',
+            False,
+        )
 
-    # The podium above already names the leaders, so these cards carry the
-    # counts and the ranking caveats instead of repeating the winners.
     cards = [
         (
             "card.ranked",
@@ -764,31 +1312,35 @@ def _panel(models: list[dict], preset: Preset, first: bool,
             '<span data-i18n="card.median.note">median score in this view</span>',
             False,
         ),
-        (
-            "card.priced",
-            f'{priced_count}',
-            '<span data-i18n="card.priced.note">models with a published price</span>',
-            False,
-        ),
+        priced_card,
     ]
     cards_html = "".join(_card(*c) for c in cards)
 
-    floor_note = ""
-    if excluded:
-        floor_note = (
-            f'<div class="note warn" data-floor-n="{len(excluded)}" '
-            f'data-floor-pct="{preset.min_coverage:.0%}">{len(excluded)} further model(s) '
-            f'fall below the {preset.min_coverage:.0%} coverage floor.</div>'
+    # One note per actual reason, each carrying its own count so the translated
+    # sentence can interpolate the right number.
+    notes = []
+    if below_coverage:
+        notes.append(
+            f'<div class="note warn" data-floor-n="{len(below_coverage)}" '
+            f'data-floor-pct="{preset.min_coverage:.0%}"></div>'
         )
+    if no_price:
+        notes.append(
+            f'<div class="note warn" data-noprice-n="{len(no_price)}"></div>'
+        )
+    floor_note = "".join(notes)
 
     return (
-        f'<section class="panel{" on" if first else ""}" data-key="{esc(preset.key)}">'
+        f'<section class="panel{" on" if first else ""}" data-key="{esc(preset.key)}" '
+        f'role="tabpanel" id="panel-{esc(preset.key)}" '
+        f'aria-labelledby="tab-{esc(preset.key)}">'
         f'<p class="desc"{_desc_attr(preset)}>{esc(preset.description)}</p>'
+        f"{_podium(models, preset, value_floor=value_floor)}"
         f'<div class="cards">{cards_html}</div>'
         f"{floor_note}"
-        f'<h2><span data-tpl="panel.top" data-v-n="{len(chart_rows)}">'
-        f'Top {len(chart_rows)}</span></h2>'
-        f"{_chart(chart_rows, '_chart')}"
+        f'<h2 data-i18n="frontier.title">Score vs price</h2>'
+        f'<p class="lede" data-i18n="frontier.desc"></p>'
+        f"{_frontier(models, preset)}"
         f'<h2 data-i18n="panel.full">Full ranking</h2>'
         f"{_table(ranked, preset, limit)}"
         "</section>"
@@ -805,9 +1357,11 @@ def render(
 ) -> str:
     """Render the full self-contained bilingual HTML page.
 
-    ``limit`` caps rows per panel. 475 models x 4 views is ~1100 rows, which
-    makes the file needlessly heavy for a page nobody scrolls to the bottom of;
-    the JSON export remains complete for programmatic use.
+    ``limit`` is how many rows each panel *initially shows*, not how many it
+    contains. Every row is rendered so search and sort work over the whole set;
+    the excess ships collapsed and is revealed client-side. 290 models x 4 views
+    is roughly 7,000 rows in one file, which compresses to a reasonable size and
+    keeps the page a single offline-capable document.
     """
     meta = meta or {}
     generated = generated or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -815,13 +1369,25 @@ def render(
 
     keys = list(presets.keys())
 
+    def _norm_label(v: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", v.lower())
+
     def _tab(key: str) -> str:
         preset = presets[key]
-        # Show the raw key only when it adds information over the label.
+        # Show the raw key only when it adds information over the label. Compare
+        # on letters and digits alone, so "Long context" does not print a
+        # redundant "longcontext" suffix.
         suffix = (f'<span class="k">{esc(key)}</span>'
-                  if key.lower() != preset.label.lower() else "")
+                  if _norm_label(key) != _norm_label(preset.label) else "")
+        label_attr = (f' data-i18n="preset.{esc(key)}.label"'
+                      if key in BUILTIN_KEYS else "")
+        # id/aria-controls wire the tab to its panel, which is what lets a
+        # screen reader announce the panel the tab governs instead of reading
+        # two unrelated widgets.
         return (f'<button class="tab" data-key="{esc(key)}" role="tab" '
-                f'aria-selected="false">{esc(preset.label)}{suffix}</button>')
+                f'id="tab-{esc(key)}" aria-controls="panel-{esc(key)}" '
+                f'aria-selected="false"><span{label_attr}>{esc(preset.label)}</span>'
+                f'{suffix}</button>')
 
     tabs = "".join(_tab(k) for k in keys)
     # Efficiency floor from whichever preset ranks by value, so every panel's
@@ -834,8 +1400,6 @@ def render(
     panels = "".join(_panel(models, presets[k], first=(i == 0), limit=limit,
                             value_floor=value_floor)
                      for i, k in enumerate(keys))
-
-    podiums = _podiums(models, presets)
 
     weight_rows = "".join(
         f"<tr><td><b>{esc(p.label)}</b><br><em class='wt'>{esc(k)}</em></td>"
@@ -916,7 +1480,6 @@ def render(
   </div>
 
   <div class="tabs" role="tablist" aria-label="{esc(s['tab.aria'])}">{tabs}</div>
-  {podiums}
   {panels}
 
   <h2 data-i18n="method.title">Weighting</h2>
