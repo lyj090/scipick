@@ -37,6 +37,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      # PyYAML is only needed for the config files this workflow passes in;
+      # scipick itself is standard library only.
+      - name: Install test dependencies
+        run: python -m pip install --quiet pytest pyyaml
+
       - name: Run tests
         run: python -m pytest tests/ -q
 
@@ -49,6 +54,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Install build dependencies
+        run: python -m pip install --quiet pyyaml
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
