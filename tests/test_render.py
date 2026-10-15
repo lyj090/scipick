@@ -724,7 +724,10 @@ class PickerTest(unittest.TestCase):
                 self.assertEqual(dated, sorted(dated, reverse=True), dates)
 
     def test_items_do_not_duplicate_the_search_haystack(self):
-        """The filter reads the item's own text and slug, so no data-search attr."""
+        """The filter reads the item's own text and slug, so there is no
+        data-search attribute repeating them. data-alias is not a duplicate: it
+        carries the serving variant the display name drops, which is the one
+        part of the upstream name that is no longer in the item's text."""
         self.assertNotIn("data-search=", self.list)
         self.assertIn("it.textContent", self.html)
 
