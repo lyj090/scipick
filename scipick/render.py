@@ -592,6 +592,18 @@ JS = r"""
     var pack = STR[lang] || STR[DEFAULT_LANG] || {};
     return pack[key] != null ? pack[key] : ((STR[DEFAULT_LANG]||{})[key] || '');
   }
+  // One templated string, with its {placeholders} filled from the element's own
+  // data-v-* attributes. Split out of applyLang because the row cap changes one
+  // of these values ("show 230 more") far more often than the language does,
+  // and re-running the whole document sweep for that is wasteful.
+  function applyTpl(el, lang){
+    var out = t(lang, el.getAttribute('data-tpl'));
+    for (var i = 0; i < el.attributes.length; i++){
+      var a = el.attributes[i];
+      if (a.name.indexOf('data-v-') === 0) out = out.replace('{'+a.name.slice(7)+'}', a.value);
+    }
+    el.textContent = out;
+  }
   function applyLang(lang){
     root.setAttribute('lang', __HTML_LANG__[lang] || 'en');
     document.querySelectorAll('[data-i18n]').forEach(function(el){
@@ -622,12 +634,7 @@ JS = r"""
     });
     // Summary-card notes carry interpolated values.
     document.querySelectorAll('[data-tpl]').forEach(function(el){
-      var out = t(lang, el.getAttribute('data-tpl'));
-      for (var i = 0; i < el.attributes.length; i++){
-        var a = el.attributes[i];
-        if (a.name.indexOf('data-v-') === 0) out = out.replace('{'+a.name.slice(7)+'}', a.value);
-      }
-      el.textContent = out;
+      applyTpl(el, lang);
     });
     var lb = document.getElementById('langbtn');
     if (lb) lb.textContent = __LANG_LABEL__[lang];
@@ -721,14 +728,16 @@ JS = r"""
     if (btn){
       btn.hidden = lim >= total;
       var lbl = btn.querySelector('[data-tpl]');
-      if (lbl) lbl.setAttribute('data-v-n', String(total - lim));
+      if (lbl){
+        lbl.setAttribute('data-v-n', String(total - lim));
+        applyTpl(lbl, current.lang || DEFAULT_LANG);
+      }
     }
     var sel = wrap.querySelector('.tsel');
     if (sel){
       var want = String(lim >= total ? 0 : lim);
       if (sel.value !== want) sel.value = want;
     }
-    if (current.lang) applyLang(current.lang);
   }
   function capOf(wrap){
     return parseInt(wrap.getAttribute('data-cap') || '0', 10) ||
@@ -745,12 +754,14 @@ JS = r"""
       var rows = wrap.querySelectorAll('tbody tr').length;
       wrap.setAttribute('data-cap', String(n === 0 ? rows : n));
       applyRows(wrap, capOf(wrap));
+      updateCount();
     });
     var btn = wrap.querySelector('[data-more]');
     if (btn) btn.addEventListener('click', function(){
       wrap.setAttribute('data-cap',
         String(wrap.querySelectorAll('tbody tr').length));
       applyRows(wrap, capOf(wrap));
+      updateCount();
     });
   });
 

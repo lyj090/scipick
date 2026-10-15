@@ -740,6 +740,43 @@ class PickerTest(unittest.TestCase):
         self.assertIn("var __SCORES__ = {", self.html)
 
 
+class SearchCostTest(unittest.TestCase):
+    """Search runs on every keystroke, so its per-keystroke cost is a feature.
+
+    applyRows used to call applyLang, which re-swept every [data-i18n] node in
+    the document and re-ran the row counter. filter() calls applyRows once per
+    table, so a single keystroke meant four full-document i18n sweeps. Measured
+    at 15.6ms per keystroke, against a 16ms frame budget.
+    """
+
+    def setUp(self):
+        self.html = render(board(), DEFAULT_PRESETS, limit=1)
+
+    def test_apply_rows_does_not_call_apply_lang(self):
+        m = re.search(r"function applyRows\(wrap, visible\)\{(.*?)\n  \}",
+                      self.html, re.S)
+        self.assertIsNotNone(m)
+        self.assertNotIn("applyLang(", m.group(1))
+
+    def test_row_cap_updates_only_its_own_template(self):
+        """The "show N more" label changes, not the whole page's language."""
+        self.assertIn("function applyTpl(el, lang)", self.html)
+        m = re.search(r"function applyRows\(wrap, visible\)\{(.*?)\n  \}",
+                      self.html, re.S)
+        self.assertIn("applyTpl(lbl", m.group(1))
+
+    def test_the_counter_is_still_refreshed_where_it_matters(self):
+        """Dropping the applyLang side effect must not freeze the counter."""
+        self.assertIn("if (box) box.addEventListener('input', filter);", self.html)
+        m = re.search(r"function filter\(\)\{(.*?)\n  \}", self.html, re.S)
+        self.assertIn("updateCount()", m.group(1))
+        for handler in re.findall(r"addEventListener\('change', function\(\)\{(.*?)\n    \}",
+                                  self.html, re.S):
+            if "applyRows" in handler:
+                self.assertIn("updateCount()", handler)
+
+
+
 class FullRankingTest(unittest.TestCase):
     def setUp(self):
         self.html = render(board(), DEFAULT_PRESETS, limit=2)
